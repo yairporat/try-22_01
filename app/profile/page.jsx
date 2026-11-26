@@ -67,8 +67,11 @@ function SignUp({ onDone }) {
     setSuggestFor(null);
   }
 
+  // מציעים מילוי אוטומטי רק כשהשדה ריק. התיבה צפה מעל הטופס, כדי שהכפתורים לא יזוזו כשהיא נסגרת.
+  const empty = (field) => !(field === 'name' ? name : email).trim();
   const suggestion = (field) =>
-    saved && suggestFor === field ? (
+    saved && suggestFor === field && empty(field) ? (
+      <div style={st.suggestWrap}>
       <button
         type="button"
         style={st.suggest}
@@ -79,6 +82,7 @@ function SignUp({ onDone }) {
         <span style={st.suggestBody}>{saved.name}</span>
         {saved.email ? <span style={st.suggestEmail} dir="ltr">{saved.email}</span> : null}
       </button>
+      </div>
     ) : null;
 
   return (
@@ -258,7 +262,8 @@ const st = {
   error: { margin: 0, color: '#b42318', fontSize: '0.85rem' },
   primary: { marginTop: 6, width: '100%', padding: 16, fontSize: '1.1rem', fontWeight: 800, color: '#fff', background: '#ee6a1f', border: 0, borderBottom: '5px solid #c24f12', borderRadius: 20, cursor: 'pointer', fontFamily: 'inherit' },
   note: { margin: 0, fontSize: '0.8rem', color: MUTED, textAlign: 'center' },
-  suggest: { display: 'grid', gap: 2, textAlign: 'start', background: '#fff', border: '2px solid #1f78a8', borderRadius: 12, padding: '10px 12px', boxShadow: '0 6px 18px rgba(20,33,43,.12)', cursor: 'pointer', font: 'inherit', color: INK },
+  suggestWrap: { position: 'relative', height: 0 },
+  suggest: { position: 'absolute', top: 4, left: 0, right: 0, zIndex: 5, display: 'grid', gap: 2, textAlign: 'start', background: '#fff', border: '2px solid #1f78a8', borderRadius: 12, padding: '10px 12px', boxShadow: '0 6px 18px rgba(20,33,43,.12)', cursor: 'pointer', font: 'inherit', color: INK },
   suggestTitle: { fontSize: '0.8rem', fontWeight: 700, color: '#1f78a8' },
   suggestBody: { fontSize: '0.95rem', fontWeight: 700 },
   suggestEmail: { fontSize: '0.9rem', color: MUTED, textAlign: 'right' },
