@@ -158,6 +158,7 @@ export default function GoPage() {
     return (
       <Summary
         trip={trip}
+        userPos={userPos}
         onHome={() => { saveTrip(null); router.push('/'); }}
         onFeedback={(feedback) => {
           const next = { ...trip, feedback };
@@ -364,7 +365,7 @@ function VerifyPanel({ verify, isLast, stopName, onCheck, onManual, onNext, onSk
   );
 }
 
-function Summary({ trip, onHome, onFeedback }) {
+function Summary({ trip, userPos, onHome, onFeedback }) {
   const { stops } = trip.adventure;
   const results = trip.results || [];
   const visited = results.filter((r) => r !== 'skipped').length;
@@ -396,6 +397,7 @@ function Summary({ trip, onHome, onFeedback }) {
         </div>
       </section>
       <FeedbackForm trip={trip} onSent={onFeedback} />
+      <GoBack origin={trip.adventure.plan?.origin} userPos={userPos} lastStop={stops[stops.length - 1]} />
       <ol style={st.list}>
         {stops.map((s, i) => (
           <li key={s.id} style={st.listItem}>
@@ -411,6 +413,38 @@ function Summary({ trip, onHome, onFeedback }) {
         חזרה למסך הבית
       </button>
     </main>
+  );
+}
+
+// הדרך חזרה לנקודת היציאה: זמן נסיעה וכפתורי ניווט
+function GoBack({ origin, userPos, lastStop }) {
+  const [drive, setDrive] = useState(null);
+  const from = userPos || (hasCoords(lastStop) ? lastStop : null);
+  useEffect(() => {
+    if (!hasCoords(origin) || !from) return;
+    let alive = true;
+    driveTime(from, origin).then((r) => alive && setDrive(r));
+    return () => {
+      alive = false;
+    };
+  }, [origin?.lat, origin?.lng, from?.lat, from?.lng]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!hasCoords(origin)) return null;
+  const name = origin.label === 'המיקום שלך' ? 'נקודת היציאה' : origin.label;
+  return (
+    <section style={st.back}>
+      <p style={st.backTitle}>
+        🏠 חזרה ל{name}
+        {drive ? <span style={st.backTime}> · {drive.estimated ? 'כ-' : ''}{formatMinutes(drive.minutes)} · {formatKm(drive.km)}</span> : null}
+      </p>
+      <div style={st.navRow}>
+        <a href={`https://www.google.com/maps/dir/?api=1&destination=${origin.lat},${origin.lng}`} target="_blank" rel="noreferrer" style={st.navBtn}>
+          Google Maps
+        </a>
+        <a href={wazeLink(origin)} target="_blank" rel="noreferrer" style={{ ...st.navBtn, ...st.waze }}>
+          Waze
+        </a>
+      </div>
+    </section>
   );
 }
 
@@ -503,6 +537,9 @@ const st = {
   manual: { ...btn, padding: '9px 0', fontSize: 15, background: '#fff', color: '#7a3f00', border: '2px solid #f6c48b' },
   done: { textAlign: 'center', marginTop: 24, display: 'grid', justifyItems: 'center', gap: 4 },
   trophy: { fontSize: 56 },
+  back: { border: '2px solid #e3e9ef', borderRadius: 20, padding: 14, display: 'grid', gap: 10, margin: '0 0 16px' },
+  backTitle: { margin: 0, fontWeight: 800, fontSize: 16 },
+  backTime: { fontWeight: 600, color: '#64748b', fontVariantNumeric: 'tabular-nums' },
   reward: { display: 'flex', alignItems: 'center', gap: 8, background: '#fff8e1', border: '2px solid #f6d58b', borderRadius: 999, padding: '8px 16px', margin: '6px 0 4px', fontSize: 17, color: '#8a5a00' },
   coin: { width: 22, height: 22, borderRadius: '50%', background: 'radial-gradient(circle at 35% 30%, #ffd86b, #f0a41a)', boxShadow: 'inset 0 0 0 2px #f6b93b', display: 'inline-block' },
   rewardTotal: { fontSize: 15, color: '#a07a2a' },

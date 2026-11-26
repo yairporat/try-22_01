@@ -5,6 +5,8 @@ import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import AdventureMap from '../../components/AdventureMap';
 import StopDetails from '../../components/StopDetails';
+import Timeline from '../../components/Timeline';
+import { resolveOrigin } from '../../lib/origin';
 
 export default function AdventurePage() {
   return (
@@ -25,14 +27,26 @@ function AdventurePreview() {
   const params = useSearchParams();
   const query = params.toString();
 
-  // שולחים את הבחירות ממסך הבית ומקבלים הרפתקה מתאימה
+  // קודם מבררים מאיפה יוצאים (המיקום שלי או עיר), ואז שולחים את הבחירות ומקבלים הרפתקה מתאימה
   useEffect(() => {
+    let alive = true;
     setAdventure(null);
     setError('');
-    fetch(`/api/find-adventure?${query}`)
-      .then((res) => res.json())
-      .then((data) => (data.error ? setError(data.error) : setAdventure(data)))
-      .catch(() => setError('לא הצלחנו לטעון את ההרפתקה. בדקו את החיבור ונסו שוב.'));
+    resolveOrigin().then((origin) => {
+      if (!alive) return;
+      const q = new URLSearchParams(query);
+      if (origin) {
+        q.set('olat', origin.lat.toFixed(5));
+        q.set('olng', origin.lng.toFixed(5));
+        q.set('olabel', origin.label);
+      }
+      return fetch(`/api/find-adventure?${q.toString()}`)
+        .then((res) => res.json())
+        .then((data) => alive && (data.error ? setError(data.error) : setAdventure(data)));
+    }).catch(() => alive && setError('לא הצלחנו לטעון את ההרפתקה. בדקו את החיבור ונסו שוב.'));
+    return () => {
+      alive = false;
+    };
   }, [query]);
 
   // המיקום של המשתמש (הדפדפן מבקש הרשאה בפעם הראשונה)
@@ -72,7 +86,7 @@ function AdventurePreview() {
         <button style={styles.back} onClick={() => router.push('/')}>
           → חזרה
         </button>
-        <p style={styles.status}>{error || 'מחפשים לך הרפתקה...'}</p>
+        <p style={styles.status}>{error || 'מאתרים את המיקום שלך ומחפשים הרפתקה...'}</p>
       </main>
     );
   }
@@ -131,6 +145,8 @@ function AdventurePreview() {
           </div>
         )}
       </header>
+
+      <Timeline adventure={adventure} />
 
       <section style={styles.stops}>
         {adventure.stops.map((stop, index) => (
