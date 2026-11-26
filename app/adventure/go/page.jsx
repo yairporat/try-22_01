@@ -89,15 +89,25 @@ export default function GoPage() {
   }
 
   function advance(result) {
-    // תחנה שהגעתי אליה נכנסת למפת "המקומות שהייתי בהם"
-    if (result !== 'skipped') recordVisit(stop, trip.adventure.title);
+    // שמירת המקום במפה ומטבעות – אסור שתקלה בהם תמנע מעבר לתחנה הבאה / לסיכום
+    if (result !== 'skipped') {
+      try {
+        recordVisit(stop, trip.adventure.title);
+      } catch (e) {
+        console.error('recordVisit failed', e);
+      }
+    }
     const results = [...(trip.results || [])];
     results[current] = result;
     const next = { ...trip, results, current: current + 1 };
     if (current + 1 >= stops.length) {
       next.finishedAt = Date.now();
       // 25 מטבעות על כל הרפתקה שהסתיימה
-      next.coins = awardAdventure(trip.startedAt, trip.adventure.title).coins;
+      try {
+        next.coins = awardAdventure(trip.startedAt, trip.adventure.title).coins;
+      } catch (e) {
+        console.error('awardAdventure failed', e);
+      }
     }
     update(next);
   }
@@ -385,6 +395,7 @@ function Summary({ trip, onHome, onFeedback }) {
           )}
         </div>
       </section>
+      <FeedbackForm trip={trip} onSent={onFeedback} />
       <ol style={st.list}>
         {stops.map((s, i) => (
           <li key={s.id} style={st.listItem}>
@@ -396,7 +407,6 @@ function Summary({ trip, onHome, onFeedback }) {
           </li>
         ))}
       </ol>
-      <FeedbackForm trip={trip} onSent={onFeedback} />
       <button type="button" style={st.primary} onClick={onHome}>
         חזרה למסך הבית
       </button>
