@@ -51,7 +51,14 @@ function SignUp({ onDone }) {
     e.preventDefault();
     setTried(true);
     if (!name.trim() || !isValidEmail(email)) return;
-    onDone(register({ name, email }));
+    const profile = register({ name, email });
+    // מודיעים לבעלי האפליקציה על ההרשמה (אימייל). כישלון כאן לא עוצר את ההרשמה.
+    fetch('/api/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: profile.name, email: profile.email }),
+    }).catch(() => {});
+    onDone(profile);
   }
 
   function autofill() {

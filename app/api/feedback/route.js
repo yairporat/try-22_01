@@ -1,6 +1,6 @@
 import { readFile, writeFile } from 'fs/promises';
 import path from 'path';
-import { FEEDBACK_WEBHOOK_URL } from '../../../lib/config';
+import { GOOGLE_SCRIPT_URL } from '../../../lib/config';
 
 const FILE = path.join(process.cwd(), 'data', 'feedback.json');
 const clip = (v, n) => String(v ?? '').slice(0, n);
@@ -36,11 +36,11 @@ export async function POST(request) {
   };
 
   try {
-    if (FEEDBACK_WEBHOOK_URL) {
-      const res = await fetch(FEEDBACK_WEBHOOK_URL, {
+    if (GOOGLE_SCRIPT_URL) {
+      const res = await fetch(GOOGLE_SCRIPT_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(entry),
+        body: JSON.stringify({ kind: 'feedback', ...entry }),
         signal: AbortSignal.timeout(10000),
       });
       if (!res.ok) throw new Error(`webhook ${res.status}`);

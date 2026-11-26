@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import AdventureMap from '../../components/AdventureMap';
 import StopDetails from '../../components/StopDetails';
 import Timeline from '../../components/Timeline';
+import FitNotice from '../../components/FitNotice';
 import { resolveOrigin } from '../../lib/origin';
 
 export default function AdventurePage() {
@@ -116,6 +117,15 @@ function AdventurePreview() {
           <span style={styles.chip}>{adventure.duration}</span>
           <span style={styles.chip}>{adventure.difficulty}</span>
         </div>
+        <FitNotice
+          adventure={adventure}
+          onPick={(sug) => {
+            const q = new URLSearchParams({ mode: 'custom', region: sug.region, duration: sug.duration, level: sug.level });
+            if (sug.placeId) q.set('id', sug.placeId);
+            router.push(`/adventure?${q.toString()}`);
+          }}
+          onChooseOther={() => router.push('/')}
+        />
         <button style={styles.mapButton} onClick={() => setShowMap((v) => !v)}>
           {showMap ? 'הסתר מפה' : 'הצג מפה'}
         </button>
