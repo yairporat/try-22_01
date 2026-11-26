@@ -9,6 +9,7 @@ import AdventureMap from '../../../components/AdventureMap';
 import { airKm, driveTime, formatKm, formatMinutes, hasCoords, wazeLink } from '../../../lib/travel';
 import { equipmentFor } from '../../../lib/equipment';
 import FeedbackForm from '../../../components/FeedbackForm';
+import { recordVisit } from '../../../lib/visited';
 
 const STORAGE_KEY = 'thv-trip';
 // במרחק כזה (במטרים) מהתחנה נחשבים "הגעתי"
@@ -87,6 +88,8 @@ export default function GoPage() {
   }
 
   function advance(result) {
+    // תחנה שהגעתי אליה נכנסת למפת "המקומות שהייתי בהם"
+    if (result !== 'skipped') recordVisit(stop, trip.adventure.title);
     const results = [...(trip.results || [])];
     results[current] = result;
     const next = { ...trip, results, current: current + 1 };
@@ -184,7 +187,7 @@ export default function GoPage() {
         </div>
         {confirmExit && (
           <div style={st.confirm}>
-            <span>לצאת מההרפתקה? ההתקדמות לא תישמר.</span>
+            <span>לצאת מההרפתקה? התחנות שכבר הגעת אליהן נשמרות במפה שלך.</span>
             <div style={{ display: 'flex', gap: 8 }}>
               <button type="button" style={st.confirmYes} onClick={() => { saveTrip(null); router.push('/'); }}>
                 כן, לצאת

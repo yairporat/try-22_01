@@ -139,7 +139,7 @@ export default function Home() {
           <HomeIcon />
           <span>בית</span>
         </button>
-        <button className="tab">
+        <button className="tab" onClick={() => router.push("/map")}>
           <MapIcon />
           <span>מפה</span>
         </button>
