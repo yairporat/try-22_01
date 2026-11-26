@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "check-places": "node --no-warnings scripts/check-places.mjs"
+    "check-places": "node --no-warnings scripts/check-places.mjs",
+    "import-places": "node --no-warnings scripts/import-places.mjs",
+    "predev": "npm run -s import-places",
+    "prebuild": "npm run -s import-places"
   },
   "dependencies": {
     "next": "15.5.4",
@@ -16,6 +19,7 @@
   "devDependencies": {
     "@types/node": "^22.7.5",
     "@types/react": "^19.1.13",
+    "read-excel-file": "^5.8.5",
     "typescript": "^5.6.3"
   }
 }
