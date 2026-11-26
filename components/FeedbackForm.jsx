@@ -1,6 +1,6 @@
 'use client';
 
-// דירוג ההרפתקה בסוף: כוכבים (1-5) והערות חופשיות.
+// דירוג ההרפתקה בסוף: פניקסים (1-5) והערות חופשיות.
 
 import { useState } from 'react';
 
@@ -15,8 +15,13 @@ export default function FeedbackForm({ trip, onSent }) {
   if (trip.feedback) {
     return (
       <section style={s.box}>
-        <p style={s.thanks}>תודה על הדירוג! {'★'.repeat(trip.feedback.rating)}</p>
-        {trip.feedback.comment && <p style={s.quote}>“{trip.feedback.comment}”</p>}
+        <p style={s.thanks}>תודה על הדירוג!</p>
+        <div style={s.stars} aria-label={`${trip.feedback.rating} מתוך 5`}>
+          {[1, 2, 3, 4, 5].map((n) => (
+            <Phoenix key={n} on={n <= trip.feedback.rating} size={30} />
+          ))}
+        </div>
+        {trip.feedback.comment && <p style={s.quote}>"{trip.feedback.comment}"</p>}
       </section>
     );
   }
@@ -59,12 +64,12 @@ export default function FeedbackForm({ trip, onSent }) {
             type="button"
             role="radio"
             aria-checked={rating === n}
-            aria-label={`${n} כוכבים`}
+            aria-label={`${n} מתוך 5`}
             onClick={() => setRating(n)}
             onMouseEnter={() => setHover(n)}
-            style={{ ...s.star, color: n <= shown ? '#f5a623' : '#d5dee6' }}
+            style={s.star}
           >
-            ★
+            <Phoenix on={n <= shown} size={48} />
           </button>
         ))}
       </div>
@@ -89,11 +94,32 @@ export default function FeedbackForm({ trip, onSent }) {
   );
 }
 
+function Phoenix({ on, size }) {
+  return (
+    <img
+      src="/phoenix.webp"
+      alt=""
+      width={size}
+      height={size}
+      style={{
+        width: size,
+        height: size,
+        objectFit: 'contain',
+        display: 'block',
+        filter: on ? 'none' : 'grayscale(1)',
+        opacity: on ? 1 : 0.3,
+        transform: on ? 'scale(1.08)' : 'scale(0.92)',
+        transition: 'transform .15s, opacity .15s, filter .15s',
+      }}
+    />
+  );
+}
+
 const s = {
   box: { border: '2px solid #e3e9ef', borderRadius: 20, padding: 16, display: 'grid', gap: 8, margin: '4px 0 16px' },
   title: { margin: 0, fontSize: 19, textAlign: 'center' },
   stars: { display: 'flex', justifyContent: 'center', gap: 4 },
-  star: { background: 'none', border: 'none', fontSize: 40, lineHeight: 1, padding: 2, cursor: 'pointer' },
+  star: { background: 'none', border: 'none', padding: 2, cursor: 'pointer', borderRadius: 12 },
   label: { margin: 0, textAlign: 'center', color: '#64748b', fontSize: 14, minHeight: 20 },
   commentLabel: { fontSize: 14, fontWeight: 700, marginTop: 4 },
   textarea: { font: 'inherit', fontSize: 15, padding: 12, borderRadius: 12, border: '2px solid #e3e9ef', resize: 'vertical', boxSizing: 'border-box', width: '100%' },
