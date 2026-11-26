@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import VisitedMap from '../../components/VisitedMap';
+import TabBar from '../../components/TabBar';
 import { formatDate, lastVisit, loadVisited, visitedList } from '../../lib/visited';
 
 export default function MapPage() {
@@ -105,32 +106,8 @@ export default function MapPage() {
         )}
       </main>
 
-      <nav style={st.tabs} aria-label="ניווט ראשי">
-        <button type="button" style={st.tab} onClick={() => router.push('/')}>
-          <Icon d="M4 11l8-7 8 7v8a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1v-8z" />
-          <span>בית</span>
-        </button>
-        <button type="button" style={{ ...st.tab, ...st.tabOn }} aria-current="page">
-          <Icon d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14" />
-          <span>מפה</span>
-        </button>
-        <button type="button" style={st.tab}>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <circle cx="12" cy="8" r="4" />
-            <path d="M4 20c1.5-4 4.5-6 8-6s6.5 2 8 6" />
-          </svg>
-          <span>פרופיל</span>
-        </button>
-      </nav>
+      <TabBar active="map" />
     </div>
-  );
-}
-
-function Icon({ d }) {
-  return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d={d} />
-    </svg>
   );
 }
 
@@ -165,11 +142,4 @@ const st = {
   emptyTitle: { margin: 0, fontSize: '1.3rem', fontWeight: 800 },
   emptyText: { margin: 0, color: MUTED, lineHeight: 1.5 },
   go: { marginTop: 8, width: '100%', padding: 16, fontSize: '1.1rem', fontWeight: 800, color: '#fff', background: '#ee6a1f', border: 0, borderBottom: '5px solid #c24f12', borderRadius: 20, cursor: 'pointer', fontFamily: 'inherit' },
-  tabs: {
-    position: 'fixed', bottom: 12, left: '50%', transform: 'translateX(-50%)', width: 'min(440px, calc(100% - 28px))',
-    display: 'flex', justifyContent: 'space-around', gap: 4, padding: '6px 6px calc(6px + env(safe-area-inset-bottom))',
-    background: '#fff', border: `2px solid ${LINE}`, borderRadius: 30, boxShadow: '0 6px 22px rgba(20, 33, 43, 0.08)', boxSizing: 'border-box', zIndex: 1000,
-  },
-  tab: { flex: 1, display: 'grid', justifyItems: 'center', gap: 2, padding: '8px 0', background: 'transparent', border: 0, borderRadius: 22, fontSize: '0.75rem', fontWeight: 500, cursor: 'pointer', color: INK, fontFamily: 'inherit' },
-  tabOn: { background: '#eef2f6', color: BLUE },
 };

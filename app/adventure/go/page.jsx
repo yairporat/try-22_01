@@ -10,6 +10,7 @@ import { airKm, driveTime, formatKm, formatMinutes, hasCoords, wazeLink } from '
 import { equipmentFor } from '../../../lib/equipment';
 import FeedbackForm from '../../../components/FeedbackForm';
 import { recordVisit } from '../../../lib/visited';
+import { ADVENTURE_REWARD, awardAdventure } from '../../../lib/profile';
 
 const STORAGE_KEY = 'thv-trip';
 // במרחק כזה (במטרים) מהתחנה נחשבים "הגעתי"
@@ -93,7 +94,11 @@ export default function GoPage() {
     const results = [...(trip.results || [])];
     results[current] = result;
     const next = { ...trip, results, current: current + 1 };
-    if (current + 1 >= stops.length) next.finishedAt = Date.now();
+    if (current + 1 >= stops.length) {
+      next.finishedAt = Date.now();
+      // 25 מטבעות על כל הרפתקה שהסתיימה
+      next.coins = awardAdventure(trip.startedAt, trip.adventure.title).coins;
+    }
     update(next);
   }
 
@@ -359,6 +364,11 @@ function Summary({ trip, onHome, onFeedback }) {
       <section style={st.done}>
         <div style={st.trophy} aria-hidden="true">🏆</div>
         <h1 style={{ ...st.name, fontSize: 26 }}>סיימת את ההרפתקה!</h1>
+        <div style={st.reward} role="status">
+          <span style={st.coin} aria-hidden="true" />
+          <b><bdi dir="ltr">+{ADVENTURE_REWARD}</bdi> מטבעות</b>
+          {trip.coins ? <span style={st.rewardTotal}>· יש לך {trip.coins}</span> : null}
+        </div>
         <p style={st.doneSub}>{trip.adventure.title}</p>
         <div style={st.etaRow}>
           <div style={st.etaBox}>
@@ -483,6 +493,9 @@ const st = {
   manual: { ...btn, padding: '9px 0', fontSize: 15, background: '#fff', color: '#7a3f00', border: '2px solid #f6c48b' },
   done: { textAlign: 'center', marginTop: 24, display: 'grid', justifyItems: 'center', gap: 4 },
   trophy: { fontSize: 56 },
+  reward: { display: 'flex', alignItems: 'center', gap: 8, background: '#fff8e1', border: '2px solid #f6d58b', borderRadius: 999, padding: '8px 16px', margin: '6px 0 4px', fontSize: 17, color: '#8a5a00' },
+  coin: { width: 22, height: 22, borderRadius: '50%', background: 'radial-gradient(circle at 35% 30%, #ffd86b, #f0a41a)', boxShadow: 'inset 0 0 0 2px #f6b93b', display: 'inline-block' },
+  rewardTotal: { fontSize: 15, color: '#a07a2a' },
   doneSub: { margin: '0 0 14px', color: '#64748b' },
   list: { listStyle: 'none', padding: 0, margin: '20px 0', display: 'grid', gap: 8 },
   listItem: { display: 'flex', alignItems: 'center', gap: 10, border: '2px solid #e3e9ef', borderRadius: 14, padding: '10px 12px', fontSize: 15 },
