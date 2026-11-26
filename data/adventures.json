@@ -1,0 +1,26 @@
+[
+  {
+    "id": "golan-day",
+    "name": "יום בגולן: מים ותצפיות",
+    "description": "דוגמה – אפשר לערוך או למחוק את השורה",
+    "image": "",
+    "show": true,
+    "stops": [
+      "gamla",
+      "hexagon-pool",
+      "bental",
+      "banias"
+    ]
+  },
+  {
+    "id": "upper-galilee-springs",
+    "name": "מעיינות הגליל העליון",
+    "description": "דוגמה – אפשר לערוך או למחוק את השורה",
+    "image": "",
+    "show": true,
+    "stops": [
+      "nahal-iyun",
+      "tel-dan"
+    ]
+  }
+]

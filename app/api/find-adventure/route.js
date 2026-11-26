@@ -1,5 +1,5 @@
-import { findAdventure, validatePlaces } from '../../../lib/adventure';
-import { loadPlaces } from '../../../lib/places';
+import { findAdventure, validatePlaces, buildCurated } from '../../../lib/adventure';
+import { loadPlaces, loadCurated } from '../../../lib/places';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,6 +23,14 @@ export async function GET(request) {
     q.get('olat') && Number.isFinite(olat) && Number.isFinite(olng)
       ? { lat: olat, lng: olng, label: (q.get('olabel') || 'המיקום שלך').slice(0, 40) }
       : null;
+  // הרפתקה שבניתי בעצמי (מהלשונית "הרפתקאות")
+  const curatedId = q.get('curated');
+  if (curatedId) {
+    const c = (await loadCurated()).find((a) => a.id === curatedId);
+    if (!c) return Response.json({ error: 'ההרפתקה הזו לא נמצאה. אולי היא נמחקה מהטבלה.' }, { status: 404 });
+    return Response.json(buildCurated(places, c, origin));
+  }
+
   return Response.json(
     findAdventure(places, {
       mode: q.get('mode'),

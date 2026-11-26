@@ -10,6 +10,7 @@ import { CITIES, MY_LOCATION, loadOriginChoice, saveOriginChoice } from "../lib/
 
 type Mode = "surprise" | "custom" | null;
 type Recommended = { id: string; name: string; image: string; region: string; type: string };
+type Curated = { id: string; name: string; description: string; image: string; stopCount: number; region: string; duration: string; difficulty: string };
 
 // רקע לכרטיס מומלץ בלי תמונה, לפי האזור
 const REGION_BG: Record<string, string> = {
@@ -29,6 +30,8 @@ export default function Home() {
   const [duration, setDuration] = useState("");
   const [level, setLevel] = useState("");
   const [recommended, setRecommended] = useState<Recommended[]>([]);
+  // הרפתקאות שבניתי בעצמי (לשונית "הרפתקאות" בטבלה)
+  const [curated, setCurated] = useState<Curated[] | null>(null);
   const [userName, setUserName] = useState("");
   const [coins, setCoins] = useState(START_COINS);
   const [originChoice, setOriginChoice] = useState(MY_LOCATION);
@@ -38,6 +41,10 @@ export default function Home() {
     setCoins(loadWallet().coins);
     setOriginChoice(loadOriginChoice());
     // הרפתקאות מומלצות: המקומות שמסומנים "מומלץ: כן" בטבלה
+    fetch("/api/curated")
+      .then((res) => res.json())
+      .then(setCurated)
+      .catch(() => setCurated([]));
     fetch("/api/places")
       .then((res) => res.json())
       .then(setRecommended)
@@ -159,18 +166,18 @@ export default function Home() {
           </button>
         </section>
 
-        {recommended.length > 0 && (
+        {curated && curated.length > 0 ? (
           <>
             <h2 className="section">הרפתקאות מומלצות</h2>
             <div className="recs">
-              {recommended.map((c) => (
-                <button key={c.id} type="button" className="rec" onClick={() => router.push(`/adventure?id=${c.id}`)}>
+              {curated.map((c) => (
+                <button key={c.id} type="button" className="rec wide" onClick={() => router.push(`/adventure?curated=${encodeURIComponent(c.id)}`)}>
                   <span
                     className="pic"
                     style={
                       c.image
                         ? { backgroundImage: `url(${c.image})`, backgroundSize: "cover", backgroundPosition: "center" }
-                        : { background: REGION_BG[c.region] || REGION_BG["מרכז"] }
+                        : { background: REGION_BG[c.region.split(" ו")[0]] || REGION_BG["מרכז"] }
                     }
                   >
                     {!c.image && (
@@ -178,15 +185,47 @@ export default function Home() {
                         <path d="M0 86 L30 46 L52 66 L80 30 L134 86 Z" fill="rgba(255,255,255,.45)" />
                       </svg>
                     )}
+                    <span className="badge">{c.stopCount} תחנות</span>
                   </span>
                   <span className="rname">{c.name}</span>
                   <span className="rmeta">
-                    {c.region} · {c.type}
+                    {c.region} · {c.duration} · {c.difficulty}
                   </span>
                 </button>
               ))}
             </div>
           </>
+        ) : (
+          curated &&
+          recommended.length > 0 && (
+            <>
+              <h2 className="section">הרפתקאות מומלצות</h2>
+              <div className="recs">
+                {recommended.map((c) => (
+                  <button key={c.id} type="button" className="rec" onClick={() => router.push(`/adventure?id=${c.id}`)}>
+                    <span
+                      className="pic"
+                      style={
+                        c.image
+                          ? { backgroundImage: `url(${c.image})`, backgroundSize: "cover", backgroundPosition: "center" }
+                          : { background: REGION_BG[c.region] || REGION_BG["מרכז"] }
+                      }
+                    >
+                      {!c.image && (
+                        <svg width="134" height="86" viewBox="0 0 134 86" aria-hidden="true">
+                          <path d="M0 86 L30 46 L52 66 L80 30 L134 86 Z" fill="rgba(255,255,255,.45)" />
+                        </svg>
+                      )}
+                    </span>
+                    <span className="rname">{c.name}</span>
+                    <span className="rmeta">
+                      {c.region} · {c.type}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )
         )}
       </main>
 
@@ -273,6 +312,9 @@ export default function Home() {
         .rec { flex: 0 0 150px; background: #fff; border: 0; border-radius: 20px; padding: 8px; box-shadow: 0 6px 18px rgba(20,33,61,.08); display: flex; flex-direction: column; gap: 6px; text-align: start; cursor: pointer; }
         .pic { height: 86px; border-radius: 14px; position: relative; overflow: hidden; display: block; }
         .pic svg { position: absolute; bottom: 0; left: 0; }
+        .rec.wide { flex-basis: 200px; }
+        .rec.wide .pic svg { width: 100%; }
+        .badge { position: absolute; top: 6px; right: 6px; background: #fff; border-radius: 999px; padding: 2px 8px; font-size: 11px; font-weight: 600; color: #B4470F; }
         .rname { font-size: 14px; font-weight: 600; padding: 0 4px; }
         .rmeta { font-size: 12px; color: var(--muted); padding: 0 4px 4px; }
 

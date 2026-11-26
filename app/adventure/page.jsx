@@ -112,6 +112,7 @@ function AdventurePreview() {
           → חזרה
         </button>
         <h1 style={styles.title}>{adventure.title}</h1>
+        {adventure.description ? <p style={styles.lead}>{adventure.description}</p> : null}
         <div style={styles.chips}>
           <span style={styles.chip}>{adventure.region}</span>
           <span style={styles.chip}>{adventure.duration}</span>
@@ -219,6 +220,7 @@ const styles = {
     margin: '0 auto',
   },
   header: { textAlign: 'center', marginBottom: 24 },
+  lead: { margin: '-4px 0 12px', color: '#64748b', fontSize: 15, lineHeight: 1.5 },
   status: { textAlign: 'center', color: '#64748b', fontSize: 16, lineHeight: 1.6, marginTop: 40 },
   noImage: {
     position: 'absolute',

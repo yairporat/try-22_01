@@ -4,12 +4,13 @@
 import { writeFileSync, existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import readXlsxFile, { readSheetNames } from 'read-excel-file/node';
-import { validatePlaces } from '../lib/adventure.js';
-import { rowsToPlaces, resolveShortLink, isUrl } from '../lib/sheet.js';
+import { validatePlaces, validateCurated } from '../lib/adventure.js';
+import { rowsToPlaces, rowsToCurated, resolveShortLink, isUrl } from '../lib/sheet.js';
 import { PLACES_SHEET_CSV_URL } from '../lib/config.js';
 
 const XLSX = fileURLToPath(new URL('../data/places.xlsx', import.meta.url));
 const JSON_OUT = fileURLToPath(new URL('../data/places.json', import.meta.url));
+const ADV_OUT = fileURLToPath(new URL('../data/adventures.json', import.meta.url));
 
 if (PLACES_SHEET_CSV_URL) {
   console.log('ℹ️ האפליקציה מחוברת ל-Google Sheets, המקומות נטענים משם.');
@@ -43,5 +44,24 @@ for (const p of unresolved) {
   else console.warn(`⚠️ לא הצלחתי לזהות את המיקום של "${p.name}" מהקישור. הניווט יעבוד, אבל המקום לא יופיע במפה.`);
 }
 
+// הרפתקאות שבניתי (לשונית "הרפתקאות"), אם יש
+let curated = [];
+if (sheets.includes('הרפתקאות')) {
+  const cRows = await readXlsxFile(XLSX, { sheet: 'הרפתקאות' });
+  const c = rowsToCurated(cRows, result.places);
+  if (c.error) {
+    console.error('❌ ' + c.error);
+    process.exit(1);
+  }
+  const cErrors = validateCurated(c.list, result.places, (i) => `לשונית הרפתקאות, שורה ${c.rowNumbers[i]}`);
+  if (cErrors.length) {
+    console.error(`❌ נמצאו ${cErrors.length} טעויות בלשונית "הרפתקאות":`);
+    cErrors.forEach((e) => console.error('   - ' + e));
+    process.exit(1);
+  }
+  curated = c.list.map(({ missing, ...rest }) => rest);
+}
+
 writeFileSync(JSON_OUT, JSON.stringify(result.places, null, 2) + '\n');
-console.log(`✅ נטענו ${result.places.length} מקומות מ-data/places.xlsx`);
+writeFileSync(ADV_OUT, JSON.stringify(curated, null, 2) + '\n');
+console.log(`✅ נטענו ${result.places.length} מקומות ו-${curated.length} הרפתקאות מ-data/places.xlsx`);
