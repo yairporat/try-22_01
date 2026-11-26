@@ -7,7 +7,8 @@ import { useEffect, useRef } from 'react';
 import 'leaflet/dist/leaflet.css';
 import { hasCoords } from '../lib/travel';
 
-export default function AdventureMap({ stops, userPos, selected, onSelect }) {
+// focus: מספר תחנה להתמקד בה (במסך הניווט) – המפה מראה אותה ואת המיקום שלך, עם קו ביניהם.
+export default function AdventureMap({ stops, userPos, selected, onSelect, focus = null, height = 300 }) {
   const boxRef = useRef(null);
   const mapRef = useRef(null);
   const layersRef = useRef({ stops: null, user: null, L: null });
@@ -35,9 +36,12 @@ export default function AdventureMap({ stops, userPos, selected, onSelect }) {
     });
     return () => {
       cancelled = true;
-      if (mapRef.current) {
-        mapRef.current.remove();
-        mapRef.current = null;
+      const map = mapRef.current;
+      mapRef.current = null;
+      if (map) {
+        // נותנים לאנימציה של Leaflet להסתיים לפני שסוגרים את המפה (אחרת יש שגיאה ביציאה באמצע זום)
+        map.stop();
+        setTimeout(() => map.remove(), 400);
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -58,12 +62,12 @@ export default function AdventureMap({ stops, userPos, selected, onSelect }) {
     points.forEach(({ s, i }) => {
       const icon = L.divIcon({
         className: '',
-        html: `<div class="thv-pin${i === selected ? ' on' : ''}">${i + 1}</div>`,
+        html: `<div class="thv-pin${i === selected ? ' on' : ''}${focus !== null && i !== focus ? ' dim' : ''}">${i + 1}</div>`,
         iconSize: [36, 36],
         iconAnchor: [18, 18],
       });
       L.marker([s.lat, s.lng], { icon, title: s.name, keyboard: true })
-        .on('click', () => onSelect(i))
+        .on('click', () => onSelect && onSelect(i))
         .addTo(layer);
     });
     if (!fittedRef.current && points.length) {
@@ -77,6 +81,12 @@ export default function AdventureMap({ stops, userPos, selected, onSelect }) {
     if (!L || !mapRef.current) return;
     layer.clearLayers();
     if (!userPos) return;
+    const target = focus !== null ? stops[focus] : null;
+    if (hasCoords(target)) {
+      L.polyline([[userPos.lat, userPos.lng], [target.lat, target.lng]], {
+        color: '#f2653a', weight: 4, opacity: 0.8, dashArray: '2 10', lineCap: 'round',
+      }).addTo(layer);
+    }
     L.circle([userPos.lat, userPos.lng], {
       radius: userPos.accuracy || 50,
       color: '#2f80ed',
@@ -94,15 +104,21 @@ export default function AdventureMap({ stops, userPos, selected, onSelect }) {
     const { L } = layersRef.current;
     const map = mapRef.current;
     if (!L || !map) return;
-    const pts = stops.filter(hasCoords).map((s) => [s.lat, s.lng]);
+    const shown = focus !== null ? [stops[focus]] : stops;
+    const pts = shown.filter(hasCoords).map((s) => [s.lat, s.lng]);
     if (userPos) pts.push([userPos.lat, userPos.lng]);
     if (pts.length === 1) map.setView(pts[0], 13);
     else if (pts.length) map.fitBounds(pts, { padding: [36, 36] });
   }
 
-  useEffect(drawStops, [stops, selected]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(drawStops, [stops, selected, focus]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
+    if (focus === null) return;
     drawUser();
+    fitAll();
+  }, [focus]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    drawUser(); // מתעדכן כשהמיקום זז
     // כשהמיקום מגיע בפעם הראשונה – מראים גם אותו וגם את התחנות
     if (userPos && !layersRef.current.userFitted && mapRef.current) {
       layersRef.current.userFitted = true;
@@ -113,14 +129,14 @@ export default function AdventureMap({ stops, userPos, selected, onSelect }) {
   // כשבוחרים תחנה – מזיזים את המפה אליה
   useEffect(() => {
     const s = stops[selected];
-    if (mapRef.current && hasCoords(s)) mapRef.current.panTo([s.lat, s.lng]);
+    if (focus === null && mapRef.current && hasCoords(s)) mapRef.current.panTo([s.lat, s.lng]);
   }, [selected, stops]);
 
   return (
     <div style={{ position: 'relative' }}>
-      <div ref={boxRef} style={{ height: 300, borderRadius: 18, overflow: 'hidden', zIndex: 0 }} />
+      <div ref={boxRef} style={{ height, borderRadius: 18, overflow: 'hidden', zIndex: 0 }} />
       <button type="button" onClick={fitAll} style={fitButton}>
-        כל ההרפתקה
+        {focus !== null ? 'אני והתחנה' : 'כל ההרפתקה'}
       </button>
       <style>{`
         .thv-pin {
@@ -131,6 +147,7 @@ export default function AdventureMap({ stops, userPos, selected, onSelect }) {
           box-sizing: border-box; cursor: pointer; transition: transform .15s;
         }
         .thv-pin.on { background: #1c5fb8; transform: scale(1.2); }
+        .thv-pin.dim { opacity: .45; transform: scale(.8); }
         .thv-me {
           width: 20px; height: 20px; border-radius: 50%;
           background: #2f80ed; border: 3px solid #fff; box-sizing: border-box;

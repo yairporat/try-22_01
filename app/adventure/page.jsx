@@ -56,8 +56,14 @@ function AdventurePreview() {
   useEffect(() => setSelected(null), [query]);
 
   const handleStart = () => {
-    // בשלב הבא: מעבר למסך התחנה הראשונה
-    router.push(`/adventure/stop/${adventure.stops[0].id}`);
+    // שומרים את ההרפתקה במכשיר ועוברים למסך הניווט
+    try {
+      localStorage.setItem(
+        'thv-trip',
+        JSON.stringify({ adventure, current: 0, results: [], startedAt: Date.now() }),
+      );
+    } catch {}
+    router.push('/adventure/go');
   };
 
   if (error || !adventure) {
