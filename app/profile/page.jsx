@@ -8,6 +8,7 @@ import TabBar from '../../components/TabBar';
 import {
   ADVENTURE_REWARD,
   isValidEmail,
+  loadLastDetails,
   loadProfile,
   loadWallet,
   logout,
@@ -39,8 +40,12 @@ function SignUp({ onDone }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [tried, setTried] = useState(false);
+  const [saved, setSaved] = useState(null); // פרטים למילוי אוטומטי
+  const [suggestFor, setSuggestFor] = useState(null); // 'name' | 'email' | null
   const nameError = tried && !name.trim() ? 'כתבו את השם שלכם' : '';
   const emailError = tried && !isValidEmail(email) ? 'כתבו כתובת אימייל תקינה, למשל dana@gmail.com' : '';
+
+  useEffect(() => setSaved(loadLastDetails()), []);
 
   function submit(e) {
     e.preventDefault();
@@ -49,6 +54,26 @@ function SignUp({ onDone }) {
     onDone(register({ name, email }));
   }
 
+  function autofill() {
+    setName(saved.name || '');
+    setEmail(saved.email || '');
+    setSuggestFor(null);
+  }
+
+  const suggestion = (field) =>
+    saved && suggestFor === field ? (
+      <button
+        type="button"
+        style={st.suggest}
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={autofill}
+      >
+        <span style={st.suggestTitle}>✨ מילוי אוטומטי</span>
+        <span style={st.suggestBody}>{saved.name}</span>
+        {saved.email ? <span style={st.suggestEmail} dir="ltr">{saved.email}</span> : null}
+      </button>
+    ) : null;
+
   return (
     <>
       <section style={st.hero}>
@@ -56,31 +81,40 @@ function SignUp({ onDone }) {
         <h1 style={st.title}>הצטרפו ל-THV</h1>
         <p style={st.sub}>פרופיל אישי שמרכז את המטבעות, ההרפתקאות והמקומות שלכם.</p>
       </section>
-      <form onSubmit={submit} noValidate style={st.card}>
+      <form onSubmit={submit} noValidate style={st.card} autoComplete="on">
         <label htmlFor="suName" style={st.label}>שם</label>
         <input
           id="suName"
+          name="name"
           value={name}
           onChange={(e) => setName(e.target.value)}
+          onFocus={() => setSuggestFor('name')}
+          onBlur={() => setSuggestFor(null)}
           autoComplete="name"
           maxLength={40}
           placeholder="איך לקרוא לכם?"
           style={{ ...st.input, ...(nameError ? st.inputError : null) }}
           aria-invalid={!!nameError}
         />
+        {suggestion('name')}
         {nameError && <p style={st.error}>{nameError}</p>}
         <label htmlFor="suEmail" style={st.label}>אימייל</label>
         <input
           id="suEmail"
+          name="email"
           type="email"
+          inputMode="email"
           dir="ltr"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
+          onFocus={() => setSuggestFor('email')}
+          onBlur={() => setSuggestFor(null)}
           autoComplete="email"
           placeholder="name@example.com"
           style={{ ...st.input, ...(emailError ? st.inputError : null), textAlign: 'left' }}
           aria-invalid={!!emailError}
         />
+        {suggestion('email')}
         {emailError && <p style={st.error}>{emailError}</p>}
         <button type="submit" style={st.primary}>הרשמה</button>
         <p style={st.note}>הפרופיל נשמר במכשיר הזה.</p>
@@ -217,6 +251,10 @@ const st = {
   error: { margin: 0, color: '#b42318', fontSize: '0.85rem' },
   primary: { marginTop: 6, width: '100%', padding: 16, fontSize: '1.1rem', fontWeight: 800, color: '#fff', background: '#ee6a1f', border: 0, borderBottom: '5px solid #c24f12', borderRadius: 20, cursor: 'pointer', fontFamily: 'inherit' },
   note: { margin: 0, fontSize: '0.8rem', color: MUTED, textAlign: 'center' },
+  suggest: { display: 'grid', gap: 2, textAlign: 'start', background: '#fff', border: '2px solid #1f78a8', borderRadius: 12, padding: '10px 12px', boxShadow: '0 6px 18px rgba(20,33,43,.12)', cursor: 'pointer', font: 'inherit', color: INK },
+  suggestTitle: { fontSize: '0.8rem', fontWeight: 700, color: '#1f78a8' },
+  suggestBody: { fontSize: '0.95rem', fontWeight: 700 },
+  suggestEmail: { fontSize: '0.9rem', color: MUTED, textAlign: 'right' },
   head: { display: 'flex', alignItems: 'center', gap: 14 },
   avatar: { width: 76, height: 76, borderRadius: '50%', background: '#e6f1f8', border: '3px solid #fff', boxShadow: '0 0 0 2px #1f78a8', display: 'grid', placeItems: 'center', flex: '0 0 auto' },
   avatarImg: { width: 58, height: 58, objectFit: 'contain' },
