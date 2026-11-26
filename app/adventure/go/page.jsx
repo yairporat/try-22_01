@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import AdventureMap from '../../../components/AdventureMap';
 import { airKm, driveTime, formatKm, formatMinutes, hasCoords, wazeLink } from '../../../lib/travel';
 import { equipmentFor } from '../../../lib/equipment';
+import FeedbackForm from '../../../components/FeedbackForm';
 
 const STORAGE_KEY = 'thv-trip';
 // במרחק כזה (במטרים) מהתחנה נחשבים "הגעתי"
@@ -135,7 +136,19 @@ export default function GoPage() {
     );
   }
 
-  if (finished) return <Summary trip={trip} onHome={() => { saveTrip(null); router.push('/'); }} />;
+  if (finished) {
+    return (
+      <Summary
+        trip={trip}
+        onHome={() => { saveTrip(null); router.push('/'); }}
+        onFeedback={(feedback) => {
+          const next = { ...trip, feedback };
+          setTrip(next);
+          saveTrip(next);
+        }}
+      />
+    );
+  }
 
   const done = (trip.results || []).length;
 
@@ -333,7 +346,7 @@ function VerifyPanel({ verify, isLast, stopName, onCheck, onManual, onNext, onSk
   );
 }
 
-function Summary({ trip, onHome }) {
+function Summary({ trip, onHome, onFeedback }) {
   const { stops } = trip.adventure;
   const results = trip.results || [];
   const visited = results.filter((r) => r !== 'skipped').length;
@@ -370,6 +383,7 @@ function Summary({ trip, onHome }) {
           </li>
         ))}
       </ol>
+      <FeedbackForm trip={trip} onSent={onFeedback} />
       <button type="button" style={st.primary} onClick={onHome}>
         חזרה למסך הבית
       </button>
