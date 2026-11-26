@@ -7,9 +7,10 @@
     "difficulty": "קל",
     "visitMinutes": 60,
     "description": "תצפית על העיר העתיקה גמלא ועל מצוק הנשרים. משביל הנגישות שליד מרכז המבקרים רואים את רכס גמלא ואת הכנרת.",
+    "location": "https://www.google.com/maps/search/?api=1&query=32.9046,35.7413",
+    "image": "",
     "lat": 32.9046,
     "lng": 35.7413,
-    "image": "",
     "recommended": true
   },
   {
@@ -20,9 +21,10 @@
     "difficulty": "בינוני",
     "visitMinutes": 90,
     "description": "בריכה בנחל מֵשׁוּשִׁים, מוקפת עמודי בזלת משושים. הירידה במדרגות תלולה, וכדאי להביא נעליים שמתאימות למים.",
+    "location": "https://www.google.com/maps/search/?api=1&query=32.9691,35.7322",
+    "image": "",
     "lat": 32.9691,
-    "lng": 35.7322,
-    "image": ""
+    "lng": 35.7322
   },
   {
     "id": "banias",
@@ -32,9 +34,10 @@
     "difficulty": "קל",
     "visitMinutes": 60,
     "description": "המפל הגדול בישראל, בשמורת החרמון (בניאס). שביל קצר מוביל למפל דרך גשר תלוי.",
+    "location": "https://www.google.com/maps/search/?api=1&query=33.2378,35.6304",
+    "image": "",
     "lat": 33.2378,
-    "lng": 35.6304,
-    "image": ""
+    "lng": 35.6304
   },
   {
     "id": "bental",
@@ -44,9 +47,10 @@
     "difficulty": "קל",
     "visitMinutes": 45,
     "description": "פסגה עם מוצב ישן ותצפית על החרמון ועל עמק הבכא. אפשר לעלות ברכב כמעט עד למעלה.",
+    "location": "https://www.google.com/maps/search/?api=1&query=33.1269,35.7836",
+    "image": "",
     "lat": 33.1269,
-    "lng": 35.7836,
-    "image": ""
+    "lng": 35.7836
   },
   {
     "id": "nahal-iyun",
@@ -56,9 +60,10 @@
     "difficulty": "קל",
     "visitMinutes": 75,
     "description": "מסלול קצר בשמורה שליד מטולה, לאורך הנחל ועד מפל התנור. המים זורמים בעיקר בחורף ובאביב.",
+    "location": "https://www.google.com/maps/search/?api=1&query=33.2721,35.5773",
+    "image": "",
     "lat": 33.2721,
     "lng": 35.5773,
-    "image": "",
     "recommended": true
   },
   {
@@ -69,9 +74,10 @@
     "difficulty": "קל",
     "visitMinutes": 90,
     "description": "שבילים מוצלים לאורך מעיינות הדן, אחד ממקורות הירדן. בשמורה יש גם שער כנעני עתיק.",
+    "location": "https://www.google.com/maps/search/?api=1&query=33.2486,35.6526",
+    "image": "",
     "lat": 33.2486,
-    "lng": 35.6526,
-    "image": ""
+    "lng": 35.6526
   },
   {
     "id": "nahal-amud",
@@ -81,9 +87,10 @@
     "difficulty": "בינוני",
     "visitMinutes": 150,
     "description": "מסלול הליכה בערוץ הנחל, עם גבים, טחנות קמח ישנות ועמוד הסלע שעל שמו נקרא הנחל.",
+    "location": "https://www.google.com/maps/search/?api=1&query=32.9361,35.5048",
+    "image": "",
     "lat": 32.9361,
     "lng": 35.5048,
-    "image": "",
     "recommended": true
   },
   {
@@ -94,9 +101,10 @@
     "difficulty": "מאתגר",
     "visitMinutes": 180,
     "description": "מסלול עלייה בשמורת הר מירון, עם יער ים־תיכוני ותצפיות לכל הגליל.",
+    "location": "https://www.google.com/maps/search/?api=1&query=32.9986,35.4108",
+    "image": "",
     "lat": 32.9986,
-    "lng": 35.4108,
-    "image": ""
+    "lng": 35.4108
   },
   {
     "id": "arbel",
@@ -106,9 +114,10 @@
     "difficulty": "קל",
     "visitMinutes": 45,
     "description": "תצפית מראש המצוק על הכנרת ועל טבריה. מהחניון יש הליכה קצרה עד לנקודת התצפית.",
+    "location": "https://www.google.com/maps/search/?api=1&query=32.8236,35.4993",
+    "image": "",
     "lat": 32.8236,
-    "lng": 35.4993,
-    "image": ""
+    "lng": 35.4993
   },
   {
     "id": "arbel-cliff",
@@ -118,9 +127,10 @@
     "difficulty": "מאתגר",
     "visitMinutes": 150,
     "description": "ירידה תלולה במצוק בעזרת יתדות ומאחזים, ליד מערות עתיקות. מתאים לבעלי ניסיון בלבד.",
+    "location": "https://www.google.com/maps/search/?api=1&query=32.8215,35.4999",
+    "image": "",
     "lat": 32.8215,
-    "lng": 35.4999,
-    "image": ""
+    "lng": 35.4999
   },
   {
     "id": "tabor",
@@ -130,9 +140,10 @@
     "difficulty": "קל",
     "visitMinutes": 60,
     "description": "הר בודד בעמק יזרעאל. בפסגה יש כנסיות ותצפית על הגליל ועל העמק.",
+    "location": "https://www.google.com/maps/search/?api=1&query=32.6869,35.3904",
+    "image": "",
     "lat": 32.6869,
-    "lng": 35.3904,
-    "image": ""
+    "lng": 35.3904
   },
   {
     "id": "tzipori",
@@ -142,9 +153,10 @@
     "difficulty": "קל",
     "visitMinutes": 90,
     "description": "עיר עתיקה עם רצפות פסיפס מרשימות, ובהן הפסיפס המכונה המונה ליזה של הגליל.",
+    "location": "https://www.google.com/maps/search/?api=1&query=32.7529,35.2797",
+    "image": "",
     "lat": 32.7529,
-    "lng": 35.2797,
-    "image": ""
+    "lng": 35.2797
   },
   {
     "id": "yarkon-springs",
@@ -154,9 +166,10 @@
     "difficulty": "קל",
     "visitMinutes": 75,
     "description": "פארק ליד ראש העין, עם מצודה עות'מאנית, בריכות ושבילים לאורך מקורות הנחל.",
+    "location": "https://www.google.com/maps/search/?api=1&query=32.1058,34.9298",
+    "image": "",
     "lat": 32.1058,
-    "lng": 34.9298,
-    "image": ""
+    "lng": 34.9298
   },
   {
     "id": "turtle-bridge",
@@ -166,9 +179,10 @@
     "difficulty": "קל",
     "visitMinutes": 45,
     "description": "גשר מעל נחל אלכסנדר, שממנו רואים לפעמים צבי ביצה רכים גדולים במים.",
+    "location": "https://www.google.com/maps/search/?api=1&query=32.3964,34.8848",
+    "image": "",
     "lat": 32.3964,
-    "lng": 34.8848,
-    "image": ""
+    "lng": 34.8848
   },
   {
     "id": "apollonia",
@@ -178,9 +192,10 @@
     "difficulty": "קל",
     "visitMinutes": 60,
     "description": "מבצר צלבני על מצוק הכורכר מעל הים, בהרצליה. יש שם שביל קצר ונוף לים.",
+    "location": "https://www.google.com/maps/search/?api=1&query=32.1942,34.8069",
+    "image": "",
     "lat": 32.1942,
-    "lng": 34.8069,
-    "image": ""
+    "lng": 34.8069
   },
   {
     "id": "soreq-cave",
@@ -190,9 +205,10 @@
     "difficulty": "קל",
     "visitMinutes": 60,
     "description": "מערה עם נטיפים וזקיפים, ליד בית שמש. הביקור במסלול מסודר.",
+    "location": "https://www.google.com/maps/search/?api=1&query=31.7567,35.0233",
+    "image": "",
     "lat": 31.7567,
-    "lng": 35.0233,
-    "image": ""
+    "lng": 35.0233
   },
   {
     "id": "beit-guvrin",
@@ -202,9 +218,10 @@
     "difficulty": "קל",
     "visitMinutes": 120,
     "description": "מערות פעמון ענקיות ומערות חצובות בשמורת בית גוברין–מרשה.",
+    "location": "https://www.google.com/maps/search/?api=1&query=31.5957,34.8988",
+    "image": "",
     "lat": 31.5957,
-    "lng": 34.8988,
-    "image": ""
+    "lng": 34.8988
   },
   {
     "id": "azeka",
@@ -214,9 +231,10 @@
     "difficulty": "בינוני",
     "visitMinutes": 60,
     "description": "עלייה לתל שמשקיף על עמק האלה, המקום שבו לפי המסורת נלחמו דוד וגוליית.",
+    "location": "https://www.google.com/maps/search/?api=1&query=31.7031,34.9356",
+    "image": "",
     "lat": 31.7031,
-    "lng": 34.9356,
-    "image": ""
+    "lng": 34.9356
   },
   {
     "id": "ein-gedi",
@@ -226,9 +244,10 @@
     "difficulty": "קל",
     "visitMinutes": 120,
     "description": "מסלול בשמורת עין גדי עד מפל דוד. בדרך רואים לפעמים יעלים ושפנים.",
+    "location": "https://www.google.com/maps/search/?api=1&query=31.4683,35.3876",
+    "image": "",
     "lat": 31.4683,
     "lng": 35.3876,
-    "image": "",
     "recommended": true
   },
   {
@@ -239,9 +258,10 @@
     "difficulty": "בינוני",
     "visitMinutes": 150,
     "description": "מסלול בערוץ הנחל עם מים זורמים כל השנה, עד הבריכה הנסתרת.",
+    "location": "https://www.google.com/maps/search/?api=1&query=31.4596,35.38",
+    "image": "",
     "lat": 31.4596,
-    "lng": 35.38,
-    "image": ""
+    "lng": 35.38
   },
   {
     "id": "masada",
@@ -251,9 +271,10 @@
     "difficulty": "מאתגר",
     "visitMinutes": 180,
     "description": "עלייה ברגל בשביל הנחש אל המצודה של הורדוס. כדאי להתחיל מוקדם בבוקר, לפני החום.",
+    "location": "https://www.google.com/maps/search/?api=1&query=31.3156,35.3536",
+    "image": "",
     "lat": 31.3156,
-    "lng": 35.3536,
-    "image": ""
+    "lng": 35.3536
   },
   {
     "id": "einot-tzukim",
@@ -263,9 +284,10 @@
     "difficulty": "קל",
     "visitMinutes": 75,
     "description": "שמורת מעיינות על חוף ים המלח, עם בריכות ושבילים בין הצמחייה.",
+    "location": "https://www.google.com/maps/search/?api=1&query=31.7108,35.4553",
+    "image": "",
     "lat": 31.7108,
-    "lng": 35.4553,
-    "image": ""
+    "lng": 35.4553
   },
   {
     "id": "ramon",
@@ -275,9 +297,10 @@
     "difficulty": "קל",
     "visitMinutes": 60,
     "description": "תצפית מהשפה של מכתש רמון, ליד מרכז המבקרים.",
+    "location": "https://www.google.com/maps/search/?api=1&query=30.6106,34.8013",
+    "image": "",
     "lat": 30.6106,
     "lng": 34.8013,
-    "image": "",
     "recommended": true
   },
   {
@@ -288,9 +311,10 @@
     "difficulty": "בינוני",
     "visitMinutes": 120,
     "description": "קניון לבן עם בריכות ומפלים קטנים, בנחל צין. בסוף המסלול יש עלייה במדרגות ובסולמות.",
+    "location": "https://www.google.com/maps/search/?api=1&query=30.8203,34.7608",
+    "image": "",
     "lat": 30.8203,
-    "lng": 34.7608,
-    "image": ""
+    "lng": 34.7608
   },
   {
     "id": "ben-gurion-tomb",
@@ -300,9 +324,10 @@
     "difficulty": "קל",
     "visitMinutes": 30,
     "description": "קבר דוד ופולה בן־גוריון, עם תצפית על ערוץ נחל צין.",
+    "location": "https://www.google.com/maps/search/?api=1&query=30.8497,34.7836",
+    "image": "",
     "lat": 30.8497,
-    "lng": 34.7836,
-    "image": ""
+    "lng": 34.7836
   },
   {
     "id": "avdat",
@@ -312,8 +337,9 @@
     "difficulty": "קל",
     "visitMinutes": 90,
     "description": "עיר נבטית על דרך הבשמים, עם כנסיות, מערות ונוף רחב על המדבר.",
+    "location": "https://www.google.com/maps/search/?api=1&query=30.7939,34.7733",
+    "image": "",
     "lat": 30.7939,
-    "lng": 34.7733,
-    "image": ""
+    "lng": 34.7733
   }
 ]

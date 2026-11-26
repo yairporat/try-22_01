@@ -92,6 +92,7 @@ function AdventurePreview() {
                   fill
                   sizes="(max-width: 480px) 100vw, 480px"
                   priority={index === 0}
+                  unoptimized={stop.image.startsWith('http')}
                   style={{ objectFit: 'cover' }}
                 />
               ) : (
