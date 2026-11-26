@@ -323,8 +323,7 @@
     "location": "https://www.google.com/maps/search/?api=1&query=31.4683,35.3876",
     "image": "",
     "lat": 31.4683,
-    "lng": 35.3876,
-    "recommended": true
+    "lng": 35.3876
   },
   {
     "id": "nahal-arugot",
@@ -392,8 +391,7 @@
     "location": "https://www.google.com/maps/search/?api=1&query=30.6106,34.8013",
     "image": "",
     "lat": 30.6106,
-    "lng": 34.8013,
-    "recommended": true
+    "lng": 34.8013
   },
   {
     "id": "ein-avdat",
@@ -445,5 +443,21 @@
     "image": "",
     "lat": 30.7939,
     "lng": 34.7733
+  },
+  {
+    "id": "ela",
+    "name": "באר האלה",
+    "region": "מרכז",
+    "type": "מעיין",
+    "difficulty": "קל",
+    "visitMinutes": 60,
+    "description": "באר מים עמוקה, בין העצים עם סולם באורך מעל 10 מטרים שיורד למים עמוקים וצלולים",
+    "hours": "",
+    "tips": "",
+    "parking": "",
+    "equipment": "",
+    "location": "https://maps.app.goo.gl/uuwnfuBsxFYu1emy6?g_st=ic",
+    "image": "",
+    "recommended": true
   }
 ]

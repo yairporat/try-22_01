@@ -5,7 +5,7 @@ import { writeFileSync, existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import readXlsxFile, { readSheetNames } from 'read-excel-file/node';
 import { validatePlaces } from '../lib/adventure.js';
-import { rowsToPlaces } from '../lib/sheet.js';
+import { rowsToPlaces, resolveShortLink, isUrl } from '../lib/sheet.js';
 import { PLACES_SHEET_CSV_URL } from '../lib/config.js';
 
 const XLSX = fileURLToPath(new URL('../data/places.xlsx', import.meta.url));
@@ -33,6 +33,14 @@ if (errors.length) {
   errors.forEach((e) => console.error('   - ' + e));
   console.error('\nתקנו את השורות האלה בגיליון ושמרו את הקובץ. האפליקציה ממשיכה להשתמש ברשימה הקודמת.');
   process.exit(1);
+}
+
+// מקומות עם קישור מקוצר מגוגל מפס: מוצאים את המיקום שלהם (צריך אינטרנט)
+const unresolved = result.places.filter((p) => p.lat === undefined && isUrl(p.location));
+for (const p of unresolved) {
+  const coords = await resolveShortLink(p.location);
+  if (coords) Object.assign(p, coords);
+  else console.warn(`⚠️ לא הצלחתי לזהות את המיקום של "${p.name}" מהקישור. הניווט יעבוד, אבל המקום לא יופיע במפה.`);
 }
 
 writeFileSync(JSON_OUT, JSON.stringify(result.places, null, 2) + '\n');
