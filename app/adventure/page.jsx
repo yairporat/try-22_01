@@ -1,34 +1,8 @@
 'use client';
 
-import { Suspense, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
-
-// נתוני דוגמה - בהמשך יגיעו מ-/api/find-adventure
-const adventure = {
-  title: 'מעיינות ותצפיות בגליל העליון',
-  region: 'גליל עליון',
-  duration: 'חצי יום',
-  difficulty: 'קל',
-  stops: [
-    {
-      id: 1,
-      name: 'מעיין הדוגמה',
-      image: '/places/spring.jpg',
-      description: 'הסבר מפורט על המקום, איך מגיעים, מה כדאי לראות ומה חשוב לדעת.',
-      visitTime: '45 דקות',
-      mapsLink: 'https://maps.google.com/?q=33.0,35.5',
-    },
-    {
-      id: 2,
-      name: 'תצפית הדוגמה',
-      image: '/places/viewpoint.jpg',
-      description: 'הסבר מפורט על התצפית והנוף שנשקף ממנה.',
-      visitTime: '30 דקות',
-      mapsLink: 'https://maps.google.com/?q=33.1,35.6',
-    },
-  ],
-};
 
 export default function AdventurePage() {
   return (
@@ -40,18 +14,50 @@ export default function AdventurePage() {
 
 function AdventurePreview() {
   const [showMap, setShowMap] = useState(false);
+  const [adventure, setAdventure] = useState(null);
+  const [error, setError] = useState('');
   const router = useRouter();
   const params = useSearchParams();
+  const query = params.toString();
 
-  // הבחירות ממסך הבית (בהמשך ישמשו לשליפת הרפתקה מתאימה)
-  const region = params.get('region') || adventure.region;
-  const duration = params.get('duration') || adventure.duration;
-  const difficulty = params.get('level') || adventure.difficulty;
+  // שולחים את הבחירות ממסך הבית ומקבלים הרפתקה מתאימה
+  useEffect(() => {
+    setAdventure(null);
+    setError('');
+    fetch(`/api/find-adventure?${query}`)
+      .then((res) => res.json())
+      .then((data) => (data.error ? setError(data.error) : setAdventure(data)))
+      .catch(() => setError('לא הצלחנו לטעון את ההרפתקה. בדקו את החיבור ונסו שוב.'));
+  }, [query]);
 
   const handleStart = () => {
     // בשלב הבא: מעבר למסך התחנה הראשונה
     router.push(`/adventure/stop/${adventure.stops[0].id}`);
   };
+
+  if (error || !adventure) {
+    return (
+      <main dir="rtl" style={styles.page}>
+        <button style={styles.back} onClick={() => router.push('/')}>
+          → חזרה
+        </button>
+        <p style={styles.status}>{error || 'מחפשים לך הרפתקה...'}</p>
+      </main>
+    );
+  }
+
+  if (!adventure.stops.length) {
+    return (
+      <main dir="rtl" style={styles.page}>
+        <button style={styles.back} onClick={() => router.push('/')}>
+          → חזרה
+        </button>
+        <p style={styles.status}>
+          עוד אין מקומות שמתאימים לבחירה הזו ב{adventure.region}. נסו רמת קושי אחרת או אזור אחר.
+        </p>
+      </main>
+    );
+  }
 
   return (
     <main dir="rtl" style={styles.page}>
@@ -61,9 +67,9 @@ function AdventurePreview() {
         </button>
         <h1 style={styles.title}>{adventure.title}</h1>
         <div style={styles.chips}>
-          <span style={styles.chip}>{region}</span>
-          <span style={styles.chip}>{duration}</span>
-          <span style={styles.chip}>{difficulty}</span>
+          <span style={styles.chip}>{adventure.region}</span>
+          <span style={styles.chip}>{adventure.duration}</span>
+          <span style={styles.chip}>{adventure.difficulty}</span>
         </div>
         <button style={styles.mapButton} onClick={() => setShowMap((v) => !v)}>
           {showMap ? 'הסתר מפה' : 'הצג מפה'}
@@ -79,14 +85,18 @@ function AdventurePreview() {
         {adventure.stops.map((stop, index) => (
           <article key={stop.id} style={styles.card}>
             <div style={styles.imageWrap}>
-              <Image
-                src={stop.image}
-                alt={stop.name}
-                fill
-                sizes="(max-width: 480px) 100vw, 480px"
-                priority={index === 0}
-                style={{ objectFit: 'cover' }}
-              />
+              {stop.image ? (
+                <Image
+                  src={stop.image}
+                  alt={stop.name}
+                  fill
+                  sizes="(max-width: 480px) 100vw, 480px"
+                  priority={index === 0}
+                  style={{ objectFit: 'cover' }}
+                />
+              ) : (
+                <div style={styles.noImage}>{stop.type}</div>
+              )}
               <span style={styles.number}>{index + 1}</span>
             </div>
             <div style={styles.cardBody}>
@@ -131,6 +141,18 @@ const styles = {
     margin: '0 auto',
   },
   header: { textAlign: 'center', marginBottom: 24 },
+  status: { textAlign: 'center', color: '#64748b', fontSize: 16, lineHeight: 1.6, marginTop: 40 },
+  noImage: {
+    position: 'absolute',
+    inset: 0,
+    background: 'linear-gradient(135deg, #cfe3ee, #f6dccb)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: '#1c5fb8',
+    fontSize: 18,
+    fontWeight: 700,
+  },
   back: {
     display: 'block',
     background: 'none',
