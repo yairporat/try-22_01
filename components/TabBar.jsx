@@ -42,16 +42,16 @@ export default function TabBar({ active }) {
   );
 }
 
+// לפי העיצוב החדש: סרגל לבן שטוח בתחתית המסך
 const s = {
   tabs: {
-    position: 'fixed', bottom: 12, left: '50%', transform: 'translateX(-50%)', width: 'min(440px, calc(100% - 28px))',
-    display: 'flex', justifyContent: 'space-around', gap: 4, padding: '6px 6px calc(6px + env(safe-area-inset-bottom))',
-    background: '#fff', border: '2px solid #e3e9ef', borderRadius: 30, boxShadow: '0 6px 22px rgba(20, 33, 43, 0.08)',
-    boxSizing: 'border-box', zIndex: 1000,
+    position: 'fixed', bottom: 0, left: 0, right: 0, height: 72, paddingBottom: 'env(safe-area-inset-bottom)',
+    background: '#fff', borderTop: '1px solid #E3EAF3', display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+    alignItems: 'center', zIndex: 1000, boxSizing: 'content-box',
   },
   tab: {
-    flex: 1, display: 'grid', justifyItems: 'center', gap: 2, padding: '8px 0', background: 'transparent', border: 0,
-    borderRadius: 22, fontSize: '0.75rem', fontWeight: 500, cursor: 'pointer', color: '#14212b', fontFamily: 'inherit',
+    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, padding: '6px 0', background: 'none', border: 0,
+    fontSize: 11, cursor: 'pointer', color: '#5B6677', fontFamily: '"Rubik", system-ui, sans-serif',
   },
-  on: { background: '#eef2f6', color: '#1f78a8' },
+  on: { color: '#1E6FD9', fontWeight: 600 },
 };
