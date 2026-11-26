@@ -10,7 +10,7 @@ export async function GET(request) {
       return Response.json(places.map((p) => ({ id: p.id, name: p.name, region: p.region })));
     }
     return Response.json(
-      places.filter((p) => p.recommended).map((p) => ({ id: p.id, name: p.name, image: p.image || '' })),
+      places.filter((p) => p.recommended).map((p) => ({ id: p.id, name: p.name, image: p.image || '', region: p.region, type: p.type })),
     );
   } catch {
     return Response.json([]);
