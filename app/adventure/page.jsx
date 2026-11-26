@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 // נתוני דוגמה - בהמשך יגיעו מ-/api/find-adventure
 const adventure = {
@@ -30,9 +30,23 @@ const adventure = {
   ],
 };
 
-export default function AdventurePreview() {
+export default function AdventurePage() {
+  return (
+    <Suspense>
+      <AdventurePreview />
+    </Suspense>
+  );
+}
+
+function AdventurePreview() {
   const [showMap, setShowMap] = useState(false);
   const router = useRouter();
+  const params = useSearchParams();
+
+  // הבחירות ממסך הבית (בהמשך ישמשו לשליפת הרפתקה מתאימה)
+  const region = params.get('region') || adventure.region;
+  const duration = params.get('duration') || adventure.duration;
+  const difficulty = params.get('level') || adventure.difficulty;
 
   const handleStart = () => {
     // בשלב הבא: מעבר למסך התחנה הראשונה
@@ -42,11 +56,14 @@ export default function AdventurePreview() {
   return (
     <main dir="rtl" style={styles.page}>
       <header style={styles.header}>
+        <button style={styles.back} onClick={() => router.push('/')}>
+          → חזרה
+        </button>
         <h1 style={styles.title}>{adventure.title}</h1>
         <div style={styles.chips}>
-          <span style={styles.chip}>{adventure.region}</span>
-          <span style={styles.chip}>{adventure.duration}</span>
-          <span style={styles.chip}>{adventure.difficulty}</span>
+          <span style={styles.chip}>{region}</span>
+          <span style={styles.chip}>{duration}</span>
+          <span style={styles.chip}>{difficulty}</span>
         </div>
         <button style={styles.mapButton} onClick={() => setShowMap((v) => !v)}>
           {showMap ? 'הסתר מפה' : 'הצג מפה'}
@@ -114,6 +131,16 @@ const styles = {
     margin: '0 auto',
   },
   header: { textAlign: 'center', marginBottom: 24 },
+  back: {
+    display: 'block',
+    background: 'none',
+    border: 'none',
+    color: BLUE_DARK,
+    fontSize: 15,
+    fontWeight: 700,
+    padding: '4px 0',
+    cursor: 'pointer',
+  },
   title: { fontSize: 26, margin: '8px 0 12px', color: '#1a1a1a' },
   chips: { display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' },
   chip: {
