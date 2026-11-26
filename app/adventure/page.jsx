@@ -3,6 +3,8 @@
 import { Suspense, useEffect, useState } from 'react';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
+import AdventureMap from '../../components/AdventureMap';
+import StopDetails from '../../components/StopDetails';
 
 export default function AdventurePage() {
   return (
@@ -13,7 +15,10 @@ export default function AdventurePage() {
 }
 
 function AdventurePreview() {
-  const [showMap, setShowMap] = useState(false);
+  const [showMap, setShowMap] = useState(true);
+  const [selected, setSelected] = useState(null);
+  const [userPos, setUserPos] = useState(null);
+  const [locStatus, setLocStatus] = useState('pending');
   const [adventure, setAdventure] = useState(null);
   const [error, setError] = useState('');
   const router = useRouter();
@@ -29,6 +34,26 @@ function AdventurePreview() {
       .then((data) => (data.error ? setError(data.error) : setAdventure(data)))
       .catch(() => setError('לא הצלחנו לטעון את ההרפתקה. בדקו את החיבור ונסו שוב.'));
   }, [query]);
+
+  // המיקום של המשתמש (הדפדפן מבקש הרשאה בפעם הראשונה)
+  useEffect(() => {
+    if (!showMap) return;
+    if (!navigator.geolocation) {
+      setLocStatus('unsupported');
+      return;
+    }
+    const id = navigator.geolocation.watchPosition(
+      (pos) => {
+        setUserPos({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy });
+        setLocStatus('ok');
+      },
+      () => setLocStatus('denied'),
+      { enableHighAccuracy: true, maximumAge: 30000, timeout: 15000 },
+    );
+    return () => navigator.geolocation.clearWatch(id);
+  }, [showMap]);
+
+  useEffect(() => setSelected(null), [query]);
 
   const handleStart = () => {
     // בשלב הבא: מעבר למסך התחנה הראשונה
@@ -75,8 +100,28 @@ function AdventurePreview() {
           {showMap ? 'הסתר מפה' : 'הצג מפה'}
         </button>
         {showMap && (
-          <div style={styles.mapBox}>
-            המפה תופיע כאן (נוסיף בהמשך)
+          <div style={styles.mapWrap}>
+            <AdventureMap
+              stops={adventure.stops}
+              userPos={userPos}
+              selected={selected}
+              onSelect={setSelected}
+            />
+            <p style={styles.mapHint}>
+              {locStatus === 'pending' && 'מאתרים את המיקום שלך...'}
+              {locStatus === 'ok' && 'הנקודה הכחולה היא המיקום שלך. לחצו על תחנה כדי לראות פרטים.'}
+              {locStatus === 'denied' && 'לא קיבלנו גישה למיקום, ולכן זמני הנסיעה הם בין התחנות בלבד. לחצו על תחנה כדי לראות פרטים.'}
+              {locStatus === 'unsupported' && 'המכשיר לא תומך באיתור מיקום. לחצו על תחנה כדי לראות פרטים.'}
+            </p>
+            {selected !== null && adventure.stops[selected] && (
+              <StopDetails
+                stop={adventure.stops[selected]}
+                index={selected}
+                prevStop={selected > 0 ? adventure.stops[selected - 1] : null}
+                userPos={userPos}
+                onClose={() => setSelected(null)}
+              />
+            )}
           </div>
         )}
       </header>
@@ -186,6 +231,8 @@ const styles = {
     fontWeight: 700,
     cursor: 'pointer',
   },
+  mapWrap: { marginTop: 12, width: '100%' },
+  mapHint: { fontSize: 13, color: '#64748b', margin: '8px 0 0', lineHeight: 1.5 },
   mapBox: {
     marginTop: 12,
     height: 180,
