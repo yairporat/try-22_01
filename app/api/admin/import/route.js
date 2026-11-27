@@ -1,6 +1,7 @@
 import { requireAdmin } from '../../../../lib/admin';
 import { loadSourcePlaces, loadSourceCurated } from '../../../../lib/places';
 import { importAll } from '../../../../lib/content';
+import { safeError } from '../../../../lib/db';
 
 // מעבר חד-פעמי: כל המקומות וההרפתקאות מהטבלה/מהקובץ עוברים לעריכה באתר
 export async function POST(request) {
@@ -13,6 +14,6 @@ export async function POST(request) {
     return Response.json({ ok: true, places: places.length, adventures: curated.length });
   } catch (e) {
     console.error('⚠️ ההעברה נכשלה:', e.message);
-    return Response.json({ error: `ההעברה נכשלה: ${e.message}` }, { status: 500 });
+    return Response.json({ error: `ההעברה נכשלה: ${safeError(e)}` }, { status: 500 });
   }
 }

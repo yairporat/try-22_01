@@ -1,5 +1,6 @@
 import { requireAdmin } from '../../../../lib/admin';
 import { saveImage } from '../../../../lib/content';
+import { safeError } from '../../../../lib/db';
 
 // העלאת תמונה (טופס עם שדה file). מחזיר { url }
 export async function POST(request) {
@@ -11,6 +12,6 @@ export async function POST(request) {
     return Response.json({ url: await saveImage(file) });
   } catch (e) {
     console.error('⚠️ העלאת תמונה נכשלה:', e.message);
-    return Response.json({ error: e.message || 'ההעלאה נכשלה' }, { status: 500 });
+    return Response.json({ error: safeError(e) || 'ההעלאה נכשלה' }, { status: 500 });
   }
 }
