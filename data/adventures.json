@@ -22,5 +22,17 @@
       "nahal-iyun",
       "tel-dan"
     ]
+  },
+  {
+    "id": "adv-mwxzzk9ogjd",
+    "name": "בין הזרמים - הרפתקאה באצבע הגליל",
+    "description": "מסע קסום ‏מסע קסום באצבע הגליל בין מקורות המים הנסתרים",
+    "image": "",
+    "show": true,
+    "stops": [
+      "place-mwxzrl7ypju",
+      "place-mwxzxdx7fu4",
+      "place-mwxzuwnfgjs"
+    ]
   }
 ]
