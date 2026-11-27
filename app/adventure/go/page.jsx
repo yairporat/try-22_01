@@ -13,6 +13,7 @@ import TypeIcon from '../../../components/TypeIcon';
 import { airKm, driveTime, formatKm, formatMinutes, hasCoords, wazeLink } from '../../../lib/travel';
 import { equipmentFor } from '../../../lib/equipment';
 import { recordVisit } from '../../../lib/visited';
+import { ACHIEVEMENT_REWARD, checkAchievements } from '../../../lib/achievements';
 import { ADVENTURE_REWARD, awardAdventure, loadProfile } from '../../../lib/profile';
 
 const STORAGE_KEY = 'thv-trip';
@@ -129,10 +130,16 @@ export default function GoPage() {
 
   function markArrived(index, by) {
     const s = stops[index];
+    let fresh = [];
     try {
       recordVisit(s, trip.adventure.title);
+      fresh = checkAchievements(); // למשל: חמישה מקומות / שלושה אזורים
     } catch {}
-    update({ ...trip, verified: { ...trip.verified, [s.id]: { at: Date.now(), by } } });
+    update({
+      ...trip,
+      verified: { ...trip.verified, [s.id]: { at: Date.now(), by } },
+      achievements: [...(trip.achievements || []), ...fresh.map((a) => ({ id: a.id, icon: a.icon, title: a.title }))],
+    });
     setRateFor(index);
   }
 
@@ -151,6 +158,12 @@ export default function GoPage() {
               coins = awardAdventure(trip.startedAt, trip.adventure.title).coins;
             } catch {}
           }
+          let achievements = trip.achievements || [];
+          try {
+            const fresh = checkAchievements();
+            achievements = [...achievements, ...fresh.map((a) => ({ id: a.id, icon: a.icon, title: a.title }))];
+            if (fresh.length && coins !== null) coins += fresh.length * ACHIEVEMENT_REWARD;
+          } catch {}
           const runId = await ensureRun(trip);
           let emailed = null;
           if (runId) {
@@ -164,7 +177,7 @@ export default function GoPage() {
               })).emailed;
             } catch {}
           }
-          update({ ...trip, runId, finishSent: true, final: final || null, coins, emailed });
+          update({ ...trip, runId, finishSent: true, final: final || null, coins, emailed, achievements });
         }}
         onHome={() => {
           saveTrip(null);
@@ -475,6 +488,17 @@ function Summary({ trip, userPos, onDone, onHome }) {
         ) : (
           <p style={st.small}>הנקודות ניתנות רק כשמגיעים לכל התחנות.</p>
         )}
+        {trip.achievements?.length ? (
+          <ul style={{ listStyle: 'none', margin: '10px 0 0', padding: 0, display: 'grid', gap: 6 }} aria-label="הישגים חדשים">
+            {trip.achievements.map((a) => (
+              <li key={a.id} style={{ background: '#FFF6E5', border: '1px solid #F5D9A6', borderRadius: 14, padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600 }}>
+                <span aria-hidden="true" style={{ fontSize: 22 }}>{a.icon}</span>
+                <span style={{ flex: 1 }}>הישג חדש: {a.title}</span>
+                <bdi dir="ltr" style={{ color: '#B4470F' }}>+{ACHIEVEMENT_REWARD}</bdi>
+              </li>
+            ))}
+          </ul>
+        ) : null}
       </section>
 
       <section style={st.box}>

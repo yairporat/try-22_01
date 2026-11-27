@@ -27,17 +27,25 @@ export async function POST(request) {
         signal: AbortSignal.timeout(10000),
       });
       if (!res.ok) throw new Error(`script ${res.status}`);
-    } else {
-      let all = [];
-      try {
-        all = JSON.parse(await readFile(FILE, 'utf8'));
-      } catch {}
-      all.push(entry);
-      await writeFile(FILE, JSON.stringify(all, null, 2) + '\n');
     }
+    await saveLocal(entry);
   } catch (e) {
     console.error('⚠️ לא הצלחתי לדווח על הרשמה:', e.message);
     return Response.json({ error: 'הדיווח נכשל' }, { status: 500 });
   }
   return Response.json({ ok: true });
+}
+
+// רשימת הנרשמים נשמרת גם כאן, כדי ש"כבר יש לי חשבון" ימצא את השם לפי האימייל
+async function saveLocal(entry) {
+  try {
+    let all = [];
+    try {
+      all = JSON.parse(await readFile(FILE, 'utf8'));
+    } catch {}
+    if (!all.some((e) => e.email === entry.email)) all.push(entry);
+    await writeFile(FILE, JSON.stringify(all, null, 2) + '\n');
+  } catch (e) {
+    if (!GOOGLE_SCRIPT_URL) throw e;
+  }
 }

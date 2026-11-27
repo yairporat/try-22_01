@@ -23,6 +23,14 @@ export async function GET(request) {
     q.get('olat') && Number.isFinite(olat) && Number.isFinite(olng)
       ? { lat: olat, lng: olng, label: (q.get('olabel') || 'המיקום שלך').slice(0, 40) }
       : null;
+  // הרפתקה שמורה (מהמועדפים): אותן תחנות באותו סדר
+  const stopsParam = q.get('stops');
+  if (stopsParam) {
+    const ids = stopsParam.split(',').filter((id) => places.some((p) => p.id === id)).slice(0, 10);
+    if (!ids.length) return Response.json({ error: 'ההרפתקה הזו כבר לא זמינה.' }, { status: 404 });
+    return Response.json(buildCurated(places, { id: `saved-${ids.join('-')}`, name: q.get('title') || 'ההרפתקה השמורה שלי', stops: ids }, origin));
+  }
+
   // הרפתקה שבניתי בעצמי (מהלשונית "הרפתקאות")
   const curatedId = q.get('curated');
   if (curatedId) {

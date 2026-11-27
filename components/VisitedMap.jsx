@@ -2,7 +2,7 @@
 
 // מפת המקומות שביקרתי בהם: פניקס על כל מקום.
 
-import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import 'leaflet/dist/leaflet.css';
 import { hasCoords } from '../lib/travel';
 
@@ -11,6 +11,16 @@ const VisitedMap = forwardRef(function VisitedMap({ places, onSelect }, ref) {
   const mapRef = useRef(null);
   const layerRef = useRef(null);
   const markersRef = useRef({});
+  const [full, setFull] = useState(false);
+
+  function fitAllPlaces() {
+    const map = mapRef.current;
+    const pts = places.filter(hasCoords);
+    if (!map) return;
+    if (!pts.length) map.setView([31.5, 35], 7);
+    else if (pts.length === 1) map.setView([pts[0].lat, pts[0].lng], 11);
+    else map.fitBounds(pts.map((p) => [p.lat, p.lng]), { padding: [40, 40], maxZoom: 12 });
+  }
 
   useImperativeHandle(ref, () => ({
     focus(id) {
@@ -83,9 +93,18 @@ const VisitedMap = forwardRef(function VisitedMap({ places, onSelect }, ref) {
     import('leaflet').then((mod) => mapRef.current && draw(mod.default || mod));
   }, [places]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    const t = setTimeout(() => mapRef.current?.invalidateSize(), 60);
+    return () => clearTimeout(t);
+  }, [full]);
+
   return (
-    <>
-      <div ref={boxRef} style={{ height: 340, borderRadius: 22, overflow: 'hidden', zIndex: 0, border: '2px solid #e3e9ef' }} />
+    <div style={full ? { position: 'fixed', inset: 0, zIndex: 2500, background: '#fff' } : { position: 'relative' }}>
+      <div ref={boxRef} style={{ height: full ? '100%' : 340, borderRadius: full ? 0 : 22, overflow: 'hidden', zIndex: 0, border: full ? 0 : '2px solid #e3e9ef' }} />
+      <div style={{ position: 'absolute', bottom: 26, right: 10, zIndex: 500, display: 'flex', gap: 8 }}>
+        <button type="button" style={mapBtn} onClick={fitAllPlaces}>כל המפה</button>
+        <button type="button" style={{ ...mapBtn, width: 40, padding: 0, fontSize: 18 }} onClick={() => setFull((v) => !v)} aria-label={full ? 'יציאה ממסך מלא' : 'מסך מלא'}>{full ? '✕' : '⛶'}</button>
+      </div>
       <style>{`
         .thv-bird { position: relative; width: 46px; height: 46px; filter: drop-shadow(0 2px 3px rgba(0,0,0,.35)); }
         .thv-bird img { width: 46px; height: 46px; object-fit: contain; display: block; }
@@ -96,8 +115,10 @@ const VisitedMap = forwardRef(function VisitedMap({ places, onSelect }, ref) {
         }
         .leaflet-popup-content { font-family: system-ui, sans-serif; font-size: 14px; line-height: 1.5; margin: 10px 14px; }
       `}</style>
-    </>
+    </div>
   );
 });
 
 export default VisitedMap;
+
+const mapBtn = { height: 40, background: '#fff', color: '#14213D', border: 0, borderRadius: 12, padding: '0 12px', fontWeight: 700, fontSize: 13, boxShadow: '0 2px 8px rgba(0,0,0,.2)', cursor: 'pointer', fontFamily: 'inherit' };

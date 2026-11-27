@@ -37,6 +37,11 @@ export default function Home() {
   const [originChoice, setOriginChoice] = useState(MY_LOCATION);
 
   useEffect(() => {
+    // משתמש חדש – קודם מסך הפתיחה וההרשמה
+    if (!loadProfile()) {
+      router.replace("/welcome");
+      return;
+    }
     setUserName(loadProfile()?.name || "");
     setCoins(loadWallet().coins);
     setOriginChoice(loadOriginChoice());

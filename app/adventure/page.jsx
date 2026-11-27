@@ -4,6 +4,8 @@ import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import AdventureMap from '../../components/AdventureMap';
 import TypeIcon from '../../components/TypeIcon';
+import GalleryModal from '../../components/GalleryModal';
+import { isFavorite, toggleFavorite } from '../../lib/favorites';
 import Timeline from '../../components/Timeline';
 import FitNotice from '../../components/FitNotice';
 import { resolveOrigin } from '../../lib/origin';
@@ -20,6 +22,10 @@ export default function AdventurePage() {
 
 function AdventurePreview() {
   const [starting, setStarting] = useState(false);
+  const [ratings, setRatings] = useState(null);
+  const [fav, setFav] = useState(false);
+  const [moreText, setMoreText] = useState(false);
+  const [gallery, setGallery] = useState(null); // מספר התמונה שפתוחה בגלריה
   const [selected, setSelected] = useState(null);
   const [userPos, setUserPos] = useState(null);
   const [locStatus, setLocStatus] = useState('pending');
@@ -70,6 +76,11 @@ function AdventurePreview() {
 
   useEffect(() => setSelected(null), [query]);
 
+  // דירוג ממוצע ציבורי
+  useEffect(() => {
+    fetch('/api/ratings').then((r) => r.json()).then(setRatings).catch(() => setRatings({ places: {}, adventures: {} }));
+  }, []);
+
   // "יוצאים להרפתקה": פותחים הרפתקה בשרת (adventure_runs) ושומרים אותה במכשיר
   const handleStart = async () => {
     setStarting(true);
@@ -114,21 +125,81 @@ function AdventurePreview() {
   }
 
   const total = adventure.plan?.origin ? adventure.plan.totalMinutes : adventure.totalMinutes;
+  // מזהה ההרפתקה: הרפתקה שבנית – לפי המזהה שלה, אחרת לפי התחנות
+  const advKey = adventure.curatedId || `stops:${adventure.stops.map((s) => s.id).join(',')}`;
+  const rating = ratings?.adventures?.[adventure.curatedId || adventure.title];
+  // כל התמונות: של ההרפתקה, של התחנות והגלריות שלהן
+  const images = [...new Set([adventure.image, ...adventure.stops.flatMap((s) => [s.image, ...(s.gallery || [])])].filter(Boolean))];
+  const description =
+    adventure.description ||
+    `${adventure.stops.length} תחנות ב${adventure.region}: ${adventure.stops.map((s) => s.name).join(', ')}. ${adventure.stops.map((s) => s.description).filter(Boolean)[0] || ''}`;
+  const favHref = adventure.curatedId
+    ? `/adventure?curated=${encodeURIComponent(adventure.curatedId)}`
+    : `/adventure?stops=${adventure.stops.map((s) => s.id).join(',')}&title=${encodeURIComponent(adventure.title)}`;
+  const isFav = fav || (typeof window !== 'undefined' && isFavorite(advKey));
 
   return (
     <main dir="rtl" style={st.page}>
-      <button type="button" style={st.back} onClick={() => router.push('/')}>→ חזרה</button>
+      <div style={st.topbar}>
+        <button
+          type="button"
+          style={{ ...st.circle, color: isFav ? '#E5484D' : '#14213D' }}
+          aria-pressed={isFav}
+          aria-label={isFav ? 'הסרה מהמועדפים' : 'הוספה למועדפים'}
+          onClick={() => setFav(toggleFavorite({ key: advKey, title: adventure.title, href: favHref, region: adventure.region, stops: adventure.stops.length }) || false)}
+        >
+          {isFav ? '♥' : '♡'}
+        </button>
+        <button type="button" style={st.circle} onClick={() => router.push('/')} aria-label="חזרה">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6" /></svg>
+        </button>
+      </div>
+
+      <div style={{ ...st.hero, ...(images[0] ? { backgroundImage: `url(${images[0]})` } : null) }} role="img" aria-label={adventure.title}>
+        {!images[0] && <img src="/phoenix-pin.png" alt="" style={{ height: 120, opacity: 0.9 }} />}
+      </div>
 
       <header style={st.head}>
-        <h1 style={st.title}>{adventure.title}</h1>
-        {adventure.description ? <p style={st.lead}>{adventure.description}</p> : null}
+        <div style={st.titleRow}>
+          <h1 style={st.title}>{adventure.title}</h1>
+          <span style={st.rate} aria-label={rating ? `דירוג ממוצע ${rating.avg} מתוך 5, ${rating.count} מדרגים` : 'עוד אין דירוגים'}>
+            <img src="/phoenix-pin.png" alt="" style={{ width: 18, height: 18, objectFit: 'contain' }} />
+            {rating ? (
+              <>
+                <b>{rating.avg}</b>
+                <small>({rating.count})</small>
+              </>
+            ) : (
+              <small>חדש</small>
+            )}
+          </span>
+        </div>
         <div style={st.chips}>
           <span style={st.chip}>⏱ כ-{formatMinutes(total)}</span>
           <span style={st.chip}>{adventure.region}</span>
           <span style={st.chip}>{adventure.difficulty}</span>
           <span style={st.chip}>{adventure.stops.length} תחנות</span>
         </div>
+        <p style={{ ...st.lead, ...(moreText ? null : st.clamp) }}>{description}</p>
+        {description.length > 120 && (
+          <button type="button" style={st.more} onClick={() => setMoreText((v) => !v)}>
+            {moreText ? 'פחות' : 'קרא עוד'}
+          </button>
+        )}
       </header>
+
+      {images.length > 1 && (
+        <div style={st.thumbs} aria-label="תמונות">
+          {images.slice(0, 4).map((src, i) => {
+            const extra = i === 3 && images.length > 4 ? images.length - 4 : 0;
+            return (
+              <button key={src} type="button" style={{ ...st.th, backgroundImage: `url(${src})` }} onClick={() => setGallery(i)} aria-label={extra ? `עוד ${extra} תמונות` : `תמונה ${i + 1}`}>
+                {extra ? <span style={st.plus}>+{extra}</span> : null}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       <FitNotice
         adventure={adventure}
@@ -172,6 +243,8 @@ function AdventurePreview() {
       </details>
       {locStatus === 'denied' && <p style={st.hint}>אין גישה למיקום, ולכן הזמן לא כולל את הנסיעה אליכם וחזרה.</p>}
 
+      {gallery !== null && <GalleryModal images={images} start={gallery} onClose={() => setGallery(null)} />}
+
       <footer style={st.footer}>
         <button type="button" style={st.start} onClick={handleStart} disabled={starting}>
           {starting ? 'יוצאים...' : 'יוצאים להרפתקה'}
@@ -186,6 +259,16 @@ const MUTED = '#5B6677';
 const LINE = '#E3EAF3';
 const st = {
   page: { minHeight: '100vh', background: '#F6F9FC', color: INK, fontFamily: '"Rubik", system-ui, sans-serif', maxWidth: 480, margin: '0 auto', padding: '16px 20px 120px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 16 },
+  topbar: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+  circle: { width: 42, height: 42, borderRadius: '50%', border: '1px solid #E3EAF3', background: '#fff', fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#14213D', boxShadow: '0 2px 8px rgba(20,33,61,.06)' },
+  hero: { height: 230, borderRadius: 26, background: 'linear-gradient(160deg,#B8E0F7,#4F9BD9) center/cover no-repeat', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 10px 26px rgba(20,33,61,.12)' },
+  titleRow: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 },
+  rate: { display: 'inline-flex', alignItems: 'center', gap: 4, background: '#FFF1E6', color: '#B4470F', borderRadius: 999, padding: '6px 10px', fontSize: 14, flex: '0 0 auto', marginTop: 4 },
+  clamp: { display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' },
+  more: { alignSelf: 'flex-start', background: 'none', border: 0, padding: 0, color: '#1E6FD9', fontWeight: 600, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' },
+  thumbs: { display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 8 },
+  th: { aspectRatio: '1', borderRadius: 14, border: 0, background: '#DCEAFB center/cover no-repeat', cursor: 'pointer', position: 'relative', overflow: 'hidden', padding: 0 },
+  plus: { position: 'absolute', inset: 0, background: 'rgba(20,33,61,.55)', color: '#fff', fontWeight: 700, fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' },
   back: { alignSelf: 'flex-start', background: 'none', border: 0, color: '#1E6FD9', fontSize: 15, fontWeight: 600, padding: '4px 0', cursor: 'pointer', fontFamily: 'inherit' },
   status: { textAlign: 'center', color: MUTED, fontSize: 16, lineHeight: 1.6, marginTop: 40 },
   head: { display: 'grid', gap: 8 },

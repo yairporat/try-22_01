@@ -3,7 +3,7 @@
 // מפת ההרפתקה: התחנות (ממוספרות), הקו שמחבר ביניהן, והמיקום של המשתמש.
 // לחיצה על תחנה קוראת ל-onSelect עם מספר התחנה.
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import 'leaflet/dist/leaflet.css';
 import { hasCoords } from '../lib/travel';
 
@@ -13,6 +13,18 @@ export default function AdventureMap({ stops, userPos, selected, onSelect, focus
   const mapRef = useRef(null);
   const layersRef = useRef({ stops: null, user: null, L: null });
   const fittedRef = useRef(false);
+  const [full, setFull] = useState(false);
+
+  // מסך מלא: אחרי שינוי הגודל Leaflet צריך למדוד מחדש
+  useEffect(() => {
+    const t = setTimeout(() => {
+      mapRef.current?.invalidateSize();
+      fitAll();
+    }, 60);
+    const onKey = (e) => e.key === 'Escape' && setFull(false);
+    if (full) window.addEventListener('keydown', onKey);
+    return () => { clearTimeout(t); window.removeEventListener('keydown', onKey); };
+  }, [full]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // יצירת המפה פעם אחת
   useEffect(() => {
@@ -133,8 +145,11 @@ export default function AdventureMap({ stops, userPos, selected, onSelect, focus
   }, [selected, stops]);
 
   return (
-    <div style={{ position: 'relative' }}>
-      <div ref={boxRef} style={{ height, borderRadius: 18, overflow: 'hidden', zIndex: 0 }} />
+    <div style={full ? fullWrap : { position: 'relative' }}>
+      <div ref={boxRef} style={{ height: full ? '100%' : height, borderRadius: full ? 0 : 18, overflow: 'hidden', zIndex: 0 }} />
+      <button type="button" onClick={() => setFull((v) => !v)} style={fullButton} aria-label={full ? 'יציאה ממסך מלא' : 'מסך מלא'}>
+        {full ? '✕' : '⛶'}
+      </button>
       <button type="button" onClick={fitAll} style={fitButton}>
         {focus !== null ? 'אני והתחנה' : 'כל ההרפתקה'}
       </button>
@@ -174,3 +189,6 @@ const fitButton = {
   boxShadow: '0 2px 8px rgba(0,0,0,.2)',
   cursor: 'pointer',
 };
+
+const fullWrap = { position: 'fixed', inset: 0, zIndex: 2500, background: '#fff' };
+const fullButton = { ...fitButton, top: 'auto', bottom: 26, right: 10, width: 40, height: 40, padding: 0, fontSize: 18, color: '#14213D' };
