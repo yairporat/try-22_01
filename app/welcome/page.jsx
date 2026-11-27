@@ -6,6 +6,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { loadProfile } from '../../lib/profile';
+import { T } from '../../components/Site';
 
 export default function WelcomePage() {
   const router = useRouter();
@@ -23,19 +24,19 @@ export default function WelcomePage() {
       </div>
 
       <h1 style={st.title}>
-        ברוכים הבאים ל-
+        <T k="welcome.title" />
         <span style={st.name} dir="ltr">THE HIDDEN VALLEY</span>
       </h1>
-      <p style={st.sub}>גלו הרפתקאות נסתרות בטבע של ישראל</p>
+      <T k="welcome.sub" as="p" style={st.sub} />
 
       <Landscape />
 
       <div style={st.actions}>
         <button type="button" style={st.primary} onClick={() => router.push('/profile?mode=signup&next=/')}>
-          בואו נתחיל
+          <T k="welcome.start" />
         </button>
         <button type="button" style={st.link} onClick={() => router.push('/profile?mode=login&next=/')}>
-          כבר יש לי חשבון
+          <T k="welcome.login" />
         </button>
       </div>
     </main>

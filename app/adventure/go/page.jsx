@@ -10,6 +10,7 @@ import { useRouter } from 'next/navigation';
 import AdventureMap from '../../../components/AdventureMap';
 import PhoenixRating from '../../../components/PhoenixRating';
 import TypeIcon from '../../../components/TypeIcon';
+import Reviews from '../../../components/Reviews';
 import { airKm, driveTime, formatKm, formatMinutes, hasCoords, wazeLink } from '../../../lib/travel';
 import { equipmentFor } from '../../../lib/equipment';
 import { recordVisit } from '../../../lib/visited';
@@ -111,7 +112,7 @@ export default function GoPage() {
   // ---- אחרי שמירת דירוג (או דילוג) לתחנה ----
   async function finishStop(index, ratingData) {
     const s = stops[index];
-    const v = { ...trip.verified[s.id], rating: ratingData?.rating || null, review: ratingData?.review || '' };
+    const v = { ...trip.verified[s.id], rating: ratingData?.rating || null, review: ratingData?.review || '', share: ratingData?.share !== false };
     const next = { ...trip, verified: { ...trip.verified, [s.id]: v } };
     // עוברים אוטומטית לתחנה הבאה שעוד לא הושלמה
     const nextIndex = stops.findIndex((x, i) => i > index && !next.verified[x.id]);
@@ -121,7 +122,7 @@ export default function GoPage() {
     const runId = await ensureRun(next);
     next.runId = runId;
     if (runId) {
-      post(`/api/runs/${runId}/stop`, { place_id: s.id, rating: v.rating, review: v.review, verified_by: v.by, verified_at: new Date(v.at).toISOString() }).catch(() => {});
+      post(`/api/runs/${runId}/stop`, { place_id: s.id, rating: v.rating, review: v.review, is_public: v.share, verified_by: v.by, verified_at: new Date(v.at).toISOString() }).catch(() => {});
     }
     if (next.current >= stops.length) next.ended = { status: 'completed', at: Date.now() };
     update(next);
@@ -375,6 +376,8 @@ function StopDetail({ stop, index, isCurrent, done, userPos, locStatus, lastFix,
         {hasCoords(stop) && <a href={wazeLink(stop)} target="_blank" rel="noreferrer" style={{ ...st.navBtn, ...st.waze }}>Waze</a>}
       </div>
 
+      <Reviews placeIds={[stop.id]} limit={3} />
+
       {done && <p style={st.success}>✓ {done.by === 'manual' ? 'אישרת שהגעת לכאן' : 'הגעת לכאן'}{done.rating ? ` · דירגת ${done.rating}/5` : ''}</p>}
       {!isCurrent && !done && <p style={st.hint}>אפשר לאמת הגעה רק בתחנה הנוכחית.</p>}
 
@@ -432,7 +435,7 @@ function RateModal({ stop, onSave, onSkip }) {
   return (
     <Modal>
       <p style={st.arrived}>✓ הגעת ל{stop.name}!</p>
-      <PhoenixRating title="איך הייתה התחנה?" onSubmit={onSave} onSkip={onSkip} submitLabel="שמירה והמשך" skipLabel="דלג" />
+      <PhoenixRating share title="איך הייתה התחנה?" onSubmit={onSave} onSkip={onSkip} submitLabel="שמירה והמשך" skipLabel="דלג" />
     </Modal>
   );
 }

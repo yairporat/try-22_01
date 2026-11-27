@@ -13,20 +13,23 @@ export default function Timeline({ adventure }) {
   const origin = plan?.origin;
   const [legs, setLegs] = useState(() => initialLegs(adventure));
 
-  // זמני נסיעה לפי הכבישים (אם אין חיבור – נשארת ההערכה)
+  // זמני נסיעה לפי הכבישים והפקקים בשעה שבה עוברים בכל קטע (אם אין חיבור – נשארת ההערכה)
   useEffect(() => {
     let alive = true;
     const pairs = legPairs(adventure);
-    setLegs(initialLegs(adventure));
+    const first = initialLegs(adventure);
+    setLegs(first);
     Promise.all(
       pairs.map(([a, b], i) =>
         hasCoords(a) && hasCoords(b)
-          ? driveTime(a, b).then((r) => (r.estimated ? null : { minutes: r.minutes + PARK_MINUTES, km: r.km, estimated: false }))
+          ? driveTime(a, b, first[i]?.at || plan?.departAt).then((r) =>
+              r.estimated ? null : { minutes: r.minutes + PARK_MINUTES, km: r.km, estimated: false, traffic: r.traffic },
+            )
           : Promise.resolve(null),
       ),
     ).then((better) => {
       if (!alive) return;
-      setLegs((cur) => cur.map((l, i) => better[i] || l));
+      setLegs((cur) => cur.map((l, i) => (better[i] ? { ...l, ...better[i] } : l)));
     });
     return () => {
       alive = false;
@@ -36,8 +39,13 @@ export default function Timeline({ adventure }) {
   const visit = stops.reduce((n, s) => n + (parseInt(s.visitTime, 10) || 0), 0);
   const between = legs.filter((l) => l.kind === 'between').reduce((n, l) => n + l.minutes, 0);
   const outside = legs.filter((l) => l.kind !== 'between').reduce((n, l) => n + l.minutes, 0);
-  const total = visit + between + outside;
-  const back = new Date(Date.now() + total * 60000).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+  const breaks = plan?.breakMinutes || 0;
+  const total = visit + between + outside + breaks;
+  const departMs = plan?.departAt ? Math.max(Date.parse(plan.departAt), Date.now()) : Date.now();
+  const fmt = (ms) => new Date(ms).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jerusalem' });
+  const leaveLater = departMs - Date.now() > 10 * 60000;
+  const back = fmt(departMs + total * 60000);
+  const trafficMin = plan?.trafficMinutes || 0;
 
   const rows = [];
   const legFor = (kind, i) => legs.find((l) => l.kind === kind && l.i === i);
@@ -58,6 +66,7 @@ export default function Timeline({ adventure }) {
       </li>,
     );
   });
+  if (breaks) rows.push(<Leg key="break" leg={{ minutes: breaks }} text="הפסקות, אוכל ועצירות בדרך" icon="🥪" />);
   const backLeg = legFor('back', 0);
   if (backLeg) rows.push(<Leg key="back" leg={backLeg} text={`חזרה ל${origin.label === 'המיקום שלך' ? 'נקודת היציאה' : origin.label}`} icon="🏠" />);
 
@@ -75,7 +84,14 @@ export default function Timeline({ adventure }) {
         {origin ? <Total label="הלוך וחזור" value={formatMinutes(outside)} /> : null}
         <Total label="סה״כ" value={formatMinutes(total)} strong />
       </div>
-      {origin ? <p style={st.note}>אם יוצאים עכשיו, חוזרים בערך ב-{back}.</p> : null}
+      {origin ? (
+        <p style={st.note}>
+          {leaveLater ? `יוצאים ב-${fmt(departMs)}, חוזרים` : 'אם יוצאים עכשיו, חוזרים'} בערך ב-{back}.
+        </p>
+      ) : null}
+      {trafficMin > 0 || legs.some((l) => l.traffic) ? (
+        <p style={st.small}>🚦 זמני הנסיעה כוללים עומסי תנועה צפויים לשעות שבהן תהיו בדרך{trafficMin > 0 ? ` (בערך ${formatMinutes(trafficMin)} נוספות)` : ''}.</p>
+      ) : null}
       {legs.some((l) => l.estimated) ? <p style={st.small}>זמני נסיעה שמסומנים ב"כ-" הם הערכה.</p> : null}
     </section>
   );

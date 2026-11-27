@@ -1,50 +1,101 @@
 'use client';
 
-// הודעה כשההרפתקה (כולל הנסיעות) ארוכה מהזמן שבחרו, עם המלצה לחלופה שכן מתאימה.
+// חלון קופץ כשלא נמצאה הרפתקה שמתאימה לבחירה (לא נכנסת בזמן כולל נסיעות ופקקים, או שאין מקומות מתאימים).
+// שלוש אפשרויות: מעבר להמלצה שכן מתאימה, בחירה אחרת, או יציאה ממקום אחר.
 
+import { useEffect, useState } from 'react';
 import { formatMinutes } from '../lib/travel';
+import { OriginSheet } from './OriginPicker';
+import { loadOriginChoice } from '../lib/origin';
+import { T, useSite } from './Site';
 
-export default function FitNotice({ adventure, onPick, onChooseOther }) {
+export default function FitNotice({ adventure, onPick, onChooseOther, onOriginChange, onClose }) {
+  const { t } = useSite();
+  const [originOpen, setOriginOpen] = useState(false);
   const fit = adventure.fit;
+
+  useEffect(() => {
+    const onKey = (e) => e.key === 'Escape' && fit?.reason !== 'empty' && onClose();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose, fit]);
+
   if (!fit || fit.fits) return null;
   const s = fit.suggestion;
+  const empty = fit.reason === 'empty' || !adventure.stops.length;
   const what =
     !s ? null : s.kind === 'region' ? `הרפתקה ב${s.region}` : s.kind === 'duration' ? `${s.duration} ב${adventure.region}` : `${s.duration} ב${s.region}`;
+
   return (
-    <section style={st.box} role="status">
-      <p style={st.title}>⏱️ ההרפתקה לא נכנסת בזמן שבחרת</p>
-      <p style={st.text}>
-        היא לוקחת כ-{formatMinutes(fit.totalMinutes)} כולל הנסיעות, ובחרת {adventure.duration} (עד {formatMinutes(fit.limitMinutes)}).
-      </p>
-      {s ? (
-        <div style={st.sugg}>
-          <p style={st.suggLabel}>ההמלצה שלנו</p>
-          <p style={st.suggTitle}>{s.title}</p>
-          <p style={st.suggMeta}>
-            {what} · {s.stops} {s.stops === 1 ? 'תחנה' : 'תחנות'} · כ-{formatMinutes(s.totalMinutes)} כולל נסיעות
-          </p>
-          <button type="button" style={st.primary} onClick={() => onPick(s)}>
-            לעבור להמלצה
+    <div style={st.overlay} role="dialog" aria-modal="true" aria-labelledby="nofit-title" dir="rtl">
+      <div style={st.box}>
+        <img src="/phoenix-pin.png" alt="" style={st.bird} />
+        <T k="nofit.title" as="h2" style={st.title} />
+        <p style={st.text} id="nofit-title">
+          {empty
+            ? `אין עדיין מקומות ב${adventure.region} שמתאימים לרמת הקושי שבחרת.`
+            : `ההרפתקה ב${adventure.region} לוקחת כ-${formatMinutes(fit.totalMinutes)} כולל נסיעות ועומסי תנועה, ובחרת ${adventure.duration} (עד ${formatMinutes(fit.limitMinutes)}).`}
+        </p>
+
+        {s ? (
+          <div style={st.sugg}>
+            <T k="nofit.suggestionLabel" as="p" style={st.suggLabel} />
+            <p style={st.suggTitle}>{s.title}</p>
+            <p style={st.suggMeta}>
+              {what} · {s.stops} {s.stops === 1 ? 'תחנה' : 'תחנות'} · כ-{formatMinutes(s.totalMinutes)} כולל נסיעות
+            </p>
+          </div>
+        ) : (
+          <p style={st.text}>לא מצאנו חלופה שנכנסת בזמן הזה מנקודת היציאה שלך.</p>
+        )}
+
+        <div style={st.actions}>
+          {s && (
+            <button type="button" style={st.primary} onClick={() => onPick(s)}>
+              {t('nofit.toSuggestion')}
+            </button>
+          )}
+          <button type="button" style={st.secondary} onClick={onChooseOther}>
+            {t('nofit.other')}
+          </button>
+          <button type="button" style={st.ghost} onClick={() => setOriginOpen(true)}>
+            📍 {t('nofit.origin')}
           </button>
         </div>
-      ) : (
-        <p style={st.text}>לא מצאנו הרפתקה שנכנסת בזמן הזה מנקודת היציאה שלך.</p>
+        {!empty && (
+          <button type="button" style={st.link} onClick={onClose}>
+            {t('nofit.showAnyway')}
+          </button>
+        )}
+      </div>
+      {originOpen && (
+        <OriginSheet
+          current={loadOriginChoice()}
+          onClose={() => setOriginOpen(false)}
+          onPick={(choice) => {
+            setOriginOpen(false);
+            onOriginChange(choice);
+          }}
+        />
       )}
-      <button type="button" style={st.secondary} onClick={onChooseOther}>
-        לבחור משהו אחר
-      </button>
-    </section>
+    </div>
   );
 }
 
+const font = '"Rubik", system-ui, sans-serif';
 const st = {
-  box: { background: '#fff8e1', border: '2px solid #f6d58b', borderRadius: 20, padding: 16, display: 'grid', gap: 8, textAlign: 'start', margin: '0 0 16px' },
-  title: { margin: 0, fontWeight: 800, fontSize: 17, color: '#8a5a00' },
-  text: { margin: 0, fontSize: 14, color: '#5c4500', lineHeight: 1.5 },
-  sugg: { background: '#fff', borderRadius: 14, padding: 12, display: 'grid', gap: 4 },
-  suggLabel: { margin: 0, fontSize: 12, fontWeight: 700, color: '#1c5fb8' },
-  suggTitle: { margin: 0, fontSize: 17, fontWeight: 800, color: '#1a1a1a' },
-  suggMeta: { margin: 0, fontSize: 13, color: '#64748b' },
-  primary: { marginTop: 6, width: '100%', border: 'none', borderRadius: 14, padding: '11px 0', fontSize: 15, fontWeight: 800, background: '#2f80ed', color: '#fff', borderBottom: '4px solid #1c5fb8', cursor: 'pointer', fontFamily: 'inherit' },
-  secondary: { width: '100%', border: '2px solid #f6d58b', borderRadius: 14, padding: '9px 0', fontSize: 15, fontWeight: 700, background: 'transparent', color: '#8a5a00', cursor: 'pointer', fontFamily: 'inherit' },
+  overlay: { position: 'fixed', inset: 0, background: 'rgba(20,33,61,.5)', zIndex: 2500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, fontFamily: font },
+  box: { background: '#fff', borderRadius: 28, padding: '20px 18px 16px', width: '100%', maxWidth: 380, display: 'grid', gap: 10, textAlign: 'center', boxShadow: '0 20px 50px rgba(0,0,0,.25)', animation: 'pop .18s ease-out', color: '#14213D' },
+  bird: { height: 64, justifySelf: 'center', filter: 'grayscale(.2)' },
+  title: { margin: 0, fontWeight: 800, fontSize: 20 },
+  text: { margin: 0, fontSize: 14, color: '#5B6677', lineHeight: 1.5 },
+  sugg: { background: '#EAF2FE', borderRadius: 18, padding: 12, display: 'grid', gap: 3, textAlign: 'start' },
+  suggLabel: { margin: 0, fontSize: 12, fontWeight: 700, color: '#1557AD' },
+  suggTitle: { margin: 0, fontSize: 17, fontWeight: 800 },
+  suggMeta: { margin: 0, fontSize: 13, color: '#5B6677' },
+  actions: { display: 'grid', gap: 8, marginTop: 4 },
+  primary: { border: 'none', borderRadius: 999, padding: '13px 0', fontSize: 16, fontWeight: 800, background: '#F26B1D', color: '#fff', boxShadow: '0 4px 0 #C2520F', cursor: 'pointer', fontFamily: font },
+  secondary: { border: '2px solid #1E6FD9', borderRadius: 999, padding: '10px 0', fontSize: 15, fontWeight: 700, background: '#fff', color: '#1E6FD9', cursor: 'pointer', fontFamily: font },
+  ghost: { border: '1px solid #D5DFEB', borderRadius: 999, padding: '10px 0', fontSize: 15, fontWeight: 600, background: '#F6F9FC', color: '#14213D', cursor: 'pointer', fontFamily: font },
+  link: { background: 'none', border: 0, color: '#5B6677', fontSize: 13, textDecoration: 'underline', cursor: 'pointer', fontFamily: font, padding: 4 },
 };

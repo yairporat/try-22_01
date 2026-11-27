@@ -5,3 +5,5 @@ data/feedback.json
 data/signups.json
 data/runs.json
 data/outbox/
+data/admin/
+public/uploads/

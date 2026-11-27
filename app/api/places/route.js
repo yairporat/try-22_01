@@ -7,7 +7,7 @@ export async function GET(request) {
   try {
     const places = await loadPlaces();
     if (request.nextUrl.searchParams.get('all')) {
-      return Response.json(places.map((p) => ({ id: p.id, name: p.name, region: p.region })));
+      return Response.json(places.map((p) => ({ id: p.id, name: p.name, region: p.region, type: p.type, image: p.image || '' })));
     }
     return Response.json(
       places.filter((p) => p.recommended).map((p) => ({ id: p.id, name: p.name, image: p.image || '', region: p.region, type: p.type })),

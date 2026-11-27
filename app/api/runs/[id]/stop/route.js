@@ -18,6 +18,7 @@ export async function POST(request, { params }) {
       review: b.review ? String(b.review).slice(0, 1000) : null,
       verified_at: b.verified_at,
       verified_by: b.verified_by,
+      is_public: b.is_public !== false,
     });
     await updateRun(id, { current_index: Math.max(run.current_index, index + 1) });
     return Response.json({ ok: true });
