@@ -1,7 +1,6 @@
 import { readFile } from 'fs/promises';
-import path from 'path';
+import { dataFile } from '../../../lib/storage';
 
-const FILE = path.join(process.cwd(), 'data', 'signups.json');
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -24,7 +23,7 @@ export async function POST(request) {
       if (res.ok) found = (await res.json())[0] || null;
     }
     if (!found) {
-      const all = JSON.parse(await readFile(FILE, 'utf8'));
+      const all = JSON.parse(await readFile(await dataFile('signups.json'), 'utf8'));
       found = all.find((e) => e.email === email) || null;
     }
   } catch {}

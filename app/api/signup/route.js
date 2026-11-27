@@ -1,8 +1,7 @@
 import { readFile, writeFile } from 'fs/promises';
-import path from 'path';
+import { dataFile } from '../../../lib/storage';
 import { GOOGLE_SCRIPT_URL } from '../../../lib/config';
 
-const FILE = path.join(process.cwd(), 'data', 'signups.json');
 
 // הודעה על הרשמה חדשה: אימייל אליך (דרך סקריפט Google), או שמירה בקובץ אם הסקריפט לא הוגדר
 export async function POST(request) {
@@ -41,10 +40,10 @@ async function saveLocal(entry) {
   try {
     let all = [];
     try {
-      all = JSON.parse(await readFile(FILE, 'utf8'));
+      all = JSON.parse(await readFile(await dataFile('signups.json'), 'utf8'));
     } catch {}
     if (!all.some((e) => e.email === entry.email)) all.push(entry);
-    await writeFile(FILE, JSON.stringify(all, null, 2) + '\n');
+    await writeFile(await dataFile('signups.json'), JSON.stringify(all, null, 2) + '\n');
   } catch (e) {
     if (!GOOGLE_SCRIPT_URL) throw e;
   }
