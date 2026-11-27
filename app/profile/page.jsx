@@ -11,6 +11,7 @@ import {
   isValidEmail,
   loadLastDetails,
   loadProfile,
+  restoreProfile,
   loadWallet,
   logout,
   register,
@@ -31,8 +32,10 @@ export default function ProfilePage() {
     const q = new URLSearchParams(window.location.search);
     if (q.get('mode') === 'login') setMode('login');
     if (q.get('next')?.startsWith('/')) setNext(q.get('next'));
-    setProfile(loadProfile());
-    setReady(true);
+    restoreProfile().then((p) => {
+      setProfile(p);
+      setReady(true);
+    });
   }, []);
 
   function signedIn(p) {

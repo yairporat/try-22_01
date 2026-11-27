@@ -7,7 +7,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { REGIONS, DURATIONS, LEVELS } from '../../lib/adventure';
-import { loadProfile } from '../../lib/profile';
+import { restoreProfile } from '../../lib/profile';
 import OriginPicker from '../../components/OriginPicker';
 import TabBar from '../../components/TabBar';
 import { T, useSite } from '../../components/Site';
@@ -34,10 +34,7 @@ function NewAdventure() {
   const [depart, setDepart] = useState('');
 
   useEffect(() => {
-    if (!loadProfile()) {
-      router.replace('/welcome');
-      return;
-    }
+    restoreProfile().then((p) => !p && router.replace('/welcome'));
     // בחירות שהגיעו בקישור (מאזור במסך הבית, או "בחירה אחרת")
     const r = params.get('region');
     const d = params.get('duration');

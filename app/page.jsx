@@ -7,7 +7,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { REGIONS } from '../lib/adventure';
-import { loadProfile, loadWallet, START_COINS } from '../lib/profile';
+import { restoreProfile, loadWallet, START_COINS } from '../lib/profile';
 import TabBar from '../components/TabBar';
 import { T, useSite } from '../components/Site';
 
@@ -32,12 +32,11 @@ export default function Home() {
   const [coins, setCoins] = useState(START_COINS);
 
   useEffect(() => {
-    // משתמש חדש – קודם מסך הפתיחה וההרשמה
-    if (!loadProfile()) {
-      router.replace('/welcome');
-      return;
-    }
-    setUserName(loadProfile()?.name || '');
+    // משתמש חדש – קודם מסך הפתיחה וההרשמה. מי שכבר נרשם נכנס ישר
+    restoreProfile().then((p) => {
+      if (!p) router.replace('/welcome');
+      else setUserName(p.name || '');
+    });
     setCoins(loadWallet().coins);
     fetch('/api/curated').then((r) => r.json()).then(setCurated).catch(() => setCurated([]));
     fetch('/api/ratings').then((r) => r.json()).then(setRatings).catch(() => {});

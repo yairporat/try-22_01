@@ -3,18 +3,22 @@
 // מסך הפתיחה: מופיע למשתמשים חדשים לפני המסך הראשי.
 // "בואו נתחיל" → הרשמה. "כבר יש לי חשבון" → התחברות לפי אימייל.
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { loadProfile } from '../../lib/profile';
+import { restoreProfile } from '../../lib/profile';
 import { T } from '../../components/Site';
 
 export default function WelcomePage() {
   const router = useRouter();
 
-  // מי שכבר רשום – ישר למסך הראשי
+  const [checking, setChecking] = useState(true);
+
+  // מי שכבר רשום (במכשיר או בעוגייה) – ישר למסך הראשי
   useEffect(() => {
-    if (loadProfile()) router.replace('/');
+    restoreProfile().then((p) => (p ? router.replace('/') : setChecking(false)));
   }, [router]);
+
+  if (checking) return <main dir="rtl" style={st.page} />;
 
   return (
     <main dir="rtl" style={st.page}>
