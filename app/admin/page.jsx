@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { REGIONS, LEVELS, TYPES } from '../../lib/adventure';
 import { TEXTS } from '../../lib/texts';
 import { useSite } from '../../components/Site';
+import { adjustCoins, loadWallet } from '../../lib/profile';
 
 export default function AdminPage() {
   return (
@@ -32,6 +33,7 @@ const TABS = [
   { id: 'adventures', label: 'הרפתקאות' },
   { id: 'texts', label: 'טקסטים ותמונות' },
   { id: 'reviews', label: 'המלצות' },
+  { id: 'tools', label: 'כלי בדיקה' },
 ];
 
 function Admin() {
@@ -107,6 +109,7 @@ function Admin() {
       {tab === 'adventures' && <AdventuresTab imported={me.imported} notify={notify} />}
       {tab === 'texts' && <TextsTab notify={notify} />}
       {tab === 'reviews' && <ReviewsTab notify={notify} />}
+      {tab === 'tools' && <ToolsTab notify={notify} />}
 
       {toast && <div style={st.toast} role="status">{toast}</div>}
     </main>
@@ -719,6 +722,42 @@ function ReviewsTab({ notify }) {
           </li>
         ))}
       </ul>
+    </section>
+  );
+}
+
+// ---------------- כלי בדיקה ----------------
+// מטבעות נשמרים במכשיר עצמו, ולכן ההוספה כאן משפיעה על הטלפון/הדפדפן שממנו נכנסת.
+function ToolsTab({ notify }) {
+  const [coins, setCoins] = useState(null);
+  const [amount, setAmount] = useState('50');
+  useEffect(() => setCoins(loadWallet().coins), []);
+  const change = (sign) => {
+    const n = Math.abs(Math.round(Number(amount))) || 0;
+    if (!n) return;
+    setCoins(adjustCoins(sign * n).coins);
+    notify(sign > 0 ? `נוספו ${n} מטבעות` : `הורדו ${n} מטבעות`);
+  };
+  return (
+    <section style={st.section}>
+      <div style={st.form}>
+        <h2 style={st.h2}>מטבעות (במכשיר הזה)</h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <img src="/coin.png" alt="" style={{ width: 48, height: 48, objectFit: 'contain' }} />
+          <b style={{ fontSize: 28, fontVariantNumeric: 'tabular-nums' }}>{coins ?? '…'}</b>
+        </div>
+        <Field label="כמה מטבעות">
+          <input type="number" min="1" step="1" value={amount} onChange={(e) => setAmount(e.target.value)} style={st.input} inputMode="numeric" />
+        </Field>
+        <div style={st.formActions}>
+          <button type="button" style={st.primary} onClick={() => change(1)}>+ הוספה</button>
+          <button type="button" style={st.ghost} onClick={() => change(-1)}>הורדה</button>
+        </div>
+      </div>
+      <div style={st.info}>
+        <b>אימות תחנות בלי להיות במקום</b>
+        <span>כשאתה מחובר כמנהל, במסך ההרפתקה מופיע מתחת ל"אמת הגעה" כפתור כהה "🛠 אימות מנהל". הוא מאמת את התחנה בלי GPS, כדי לבדוק את כל הדרך עד הסיום.</span>
+      </div>
     </section>
   );
 }

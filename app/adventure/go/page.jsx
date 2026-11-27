@@ -1,9 +1,10 @@
 'use client';
 
-// מצב הרפתקה: כל תחנה במשבצת משלה. התחנה הנוכחית מסומנת "אתה כאן", ותחנות שהושלמו ב-✓.
-// לחיצה על משבצת פותחת דף פרטים (גלריה, תיאור, הגעה ובטיחות, ניווט).
-// "אמת הגעה" – רק בתחנה הנוכחית, לפי GPS בתוך הרדיוס של המקום. אחרי האימות: דירוג (אפשר לדלג),
-// ומעבר אוטומטי לתחנה הבאה. "סיים הרפתקה" זמין כל הזמן.
+// מצב הרפתקה: למעלה מפה עם התחנות והמיקום שלך, ומתחת רשימת התחנות לפי הסדר (ציר זמן).
+// התחנה הנוכחית מסומנת "אתה כאן", תחנות שהושלמו ב-✓ ותחנות שדילגת עליהן באפור.
+// למטה: "אמת הגעה" (GPS בתוך הרדיוס של המקום) או "דלג". לחיצה על תחנה פותחת מסך גדול עם כל הפרטים,
+// וגם בו אפשר לאמת או לדלג. אחרי כל התחנות – לחיצה ארוכה על "סיום ההרפתקה" ומסך סיכום.
+// מנהל מחובר יכול לאמת תחנה בלי להיות במקום (לבדיקות).
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -16,6 +17,7 @@ import { equipmentFor } from '../../../lib/equipment';
 import { recordVisit } from '../../../lib/visited';
 import { ACHIEVEMENT_REWARD, checkAchievements } from '../../../lib/achievements';
 import { ADVENTURE_REWARD, awardAdventure, loadProfile } from '../../../lib/profile';
+import { useSite } from '../../../components/Site';
 
 const STORAGE_KEY = 'thv-trip';
 const DEFAULT_RADIUS = 400; // מטרים, כשלמקום לא הוגדר רדיוס
@@ -48,12 +50,15 @@ export default function GoPage() {
   const [detail, setDetail] = useState(null); // מספר התחנה שהפרטים שלה פתוחים
   const [rateFor, setRateFor] = useState(null); // התחנה שמדרגים עכשיו
   const [ending, setEnding] = useState(null); // null | 'confirm' | 'reason'
+  const [skipFor, setSkipFor] = useState(null); // התחנה שמבקשים לדלג עליה
   const lastFix = useRef(null);
+  const { admin } = useSite();
 
   useEffect(() => {
     const t = loadTrip();
     // הרפתקה שנשמרה בגרסה הקודמת של המסך – ממירים
     if (t && !t.verified) t.verified = {};
+    if (t && !t.skipped) t.skipped = {};
     setTrip(t);
   }, []);
 
@@ -106,17 +111,19 @@ export default function GoPage() {
   }
 
   const stops = trip.adventure.stops;
+  const skipped = trip.skipped || {};
   const verifiedCount = stops.filter((s) => trip.verified[s.id]).length;
   const allDone = verifiedCount === stops.length;
+  const handled = (s) => trip.verified[s.id] || skipped[s.id];
+  const allHandled = stops.every(handled);
 
   // ---- אחרי שמירת דירוג (או דילוג) לתחנה ----
   async function finishStop(index, ratingData) {
     const s = stops[index];
     const v = { ...trip.verified[s.id], rating: ratingData?.rating || null, review: ratingData?.review || '', share: ratingData?.share !== false };
     const next = { ...trip, verified: { ...trip.verified, [s.id]: v } };
-    // עוברים אוטומטית לתחנה הבאה שעוד לא הושלמה
-    const nextIndex = stops.findIndex((x, i) => i > index && !next.verified[x.id]);
-    next.current = nextIndex >= 0 ? nextIndex : stops.length;
+    // עוברים אוטומטית לתחנה הבאה שעוד לא הושלמה (בסוף – מסך הסיום בלחיצה ארוכה)
+    next.current = nextOpen(next, index);
     setRateFor(null);
     setDetail(null);
     const runId = await ensureRun(next);
@@ -124,8 +131,31 @@ export default function GoPage() {
     if (runId) {
       post(`/api/runs/${runId}/stop`, { place_id: s.id, rating: v.rating, review: v.review, is_public: v.share, verified_by: v.by, verified_at: new Date(v.at).toISOString() }).catch(() => {});
     }
-    if (next.current >= stops.length) next.ended = { status: 'completed', at: Date.now() };
     update(next);
+    window.scrollTo(0, 0);
+  }
+
+  function nextOpen(t, index) {
+    const sk = t.skipped || {};
+    const i = stops.findIndex((x, j) => j > index && !t.verified[x.id] && !sk[x.id]);
+    if (i >= 0) return i;
+    const back = stops.findIndex((x) => !t.verified[x.id] && !sk[x.id]);
+    return back >= 0 ? back : stops.length;
+  }
+
+  // דילוג על תחנה: לא נחשבת כהגעה, ועוברים לבאה
+  function skipStop(index) {
+    const s = stops[index];
+    const next = { ...trip, skipped: { ...skipped, [s.id]: Date.now() } };
+    next.current = nextOpen(next, index);
+    setSkipFor(null);
+    setDetail(null);
+    update(next);
+    window.scrollTo(0, 0);
+  }
+
+  function finishAll() {
+    update({ ...trip, ended: { status: 'completed', at: Date.now() } });
     window.scrollTo(0, 0);
   }
 
@@ -188,80 +218,154 @@ export default function GoPage() {
     );
   }
 
-  const current = Math.min(trip.current ?? 0, stops.length - 1);
+  const firstOpen = stops.findIndex((x) => !handled(x));
+  const current = allHandled ? -1 : handled(stops[Math.min(trip.current ?? 0, stops.length - 1)]) ? firstOpen : Math.min(trip.current ?? 0, stops.length - 1);
+  const plan = trip.adventure.plan || {};
+  // מרחק לכל תחנה: מנקודת היציאה לראשונה, ומהתחנה הקודמת לשאר
+  const kmTo = (i) => {
+    const l = i === 0 ? plan.toStart : plan.between?.[i - 1];
+    if (l?.km) return l.km;
+    const prev = i === 0 ? null : stops[i - 1];
+    return prev && hasCoords(prev) && hasCoords(stops[i]) ? Math.round(airKm(prev, stops[i]) * 10) / 10 : null;
+  };
 
-  // ---- דף פרטי תחנה ----
+  const skipModal =
+    skipFor !== null ? (
+      <Modal onClose={() => setSkipFor(null)}>
+        <h2 style={st.modalTitle}>לדלג על {stops[skipFor].name}?</h2>
+        <p style={st.modalText}>התחנה תסומן שדילגת עליה ונעבור לתחנה הבאה. המטבעות על ההרפתקה ניתנים רק כשמגיעים לכל התחנות.</p>
+        <div style={st.modalActions}>
+          <button type="button" style={st.primary} onClick={() => skipStop(skipFor)}>כן, לדלג</button>
+          <button type="button" style={st.secondary} onClick={() => setSkipFor(null)}>ביטול</button>
+        </div>
+      </Modal>
+    ) : null;
+
+  // ---- מסך גדול של תחנה ----
   if (detail !== null) {
     return (
       <>
         <StopDetail
           stop={stops[detail]}
           index={detail}
+          total={stops.length}
           isCurrent={detail === current}
           done={trip.verified[stops[detail].id]}
+          wasSkipped={!!skipped[stops[detail].id]}
           userPos={userPos}
           locStatus={locStatus}
           lastFix={lastFix}
+          admin={admin}
           onBack={() => setDetail(null)}
           onArrived={(by) => markArrived(detail, by)}
+          onSkip={() => setSkipFor(detail)}
         />
         {rateFor !== null && <RateModal stop={stops[rateFor]} onSave={(r) => finishStop(rateFor, r)} onSkip={() => finishStop(rateFor, null)} />}
+        {skipModal}
       </>
     );
   }
 
-  // ---- רשימת המשבצות ----
+  // ---- רשימת התחנות ----
   return (
-    <main dir="rtl" style={st.page}>
-      <header style={st.top}>
-        <div style={{ minWidth: 0 }}>
-          <p style={st.kicker}>מצב הרפתקה</p>
-          <h1 style={st.h1}>{trip.adventure.title}</h1>
-          <p style={st.progressText}>
-            {verifiedCount} מתוך {stops.length} תחנות הושלמו
-          </p>
-        </div>
-        <button type="button" style={st.endBtn} onClick={() => setEnding(allDone ? null : 'confirm')}>
-          סיים הרפתקה
-        </button>
-      </header>
-      <div style={st.progress} aria-hidden="true">
-        {stops.map((s, i) => (
-          <span key={s.id} style={{ ...st.seg, background: trip.verified[s.id] ? '#22A06B' : i === current ? '#F26B1D' : '#E3EAF3' }} />
-        ))}
+    <main dir="rtl" style={st.listPage}>
+      <div style={st.hero}>
+        <AdventureMap stops={stops} userPos={userPos} selected={current >= 0 ? current : null} focus={current >= 0 ? current : null} height={280} onSelect={(i) => setDetail(i)} />
       </div>
 
-      <AdventureMap stops={stops} userPos={userPos} selected={current} focus={current} height={220} onSelect={(i) => setDetail(i)} />
+      <section style={st.listSheet}>
+        <header style={st.top}>
+          <div style={{ minWidth: 0 }}>
+            <p style={st.kicker}>מצב הרפתקה</p>
+            <h1 style={st.h1}>{trip.adventure.title}</h1>
+            <p style={st.progressText}>
+              {verifiedCount} מתוך {stops.length} תחנות הושלמו{Object.keys(skipped).length ? ` · דילגת על ${stops.filter((x) => skipped[x.id]).length}` : ''}
+            </p>
+          </div>
+          {!allHandled && (
+            <button type="button" style={st.endBtn} onClick={() => setEnding('confirm')}>
+              סיום מוקדם
+            </button>
+          )}
+        </header>
+        <div style={st.progress} aria-hidden="true">
+          {stops.map((s, i) => (
+            <span key={s.id} style={{ ...st.seg, background: trip.verified[s.id] ? '#22A06B' : skipped[s.id] ? '#B9C3CF' : i === current ? '#F26B1D' : '#E3EAF3' }} />
+          ))}
+        </div>
 
-      <ol style={st.cards}>
-        {stops.map((s, i) => {
-          const done = trip.verified[s.id];
-          const isCur = i === current && !done;
-          return (
-            <li key={s.id}>
-              <button type="button" style={{ ...st.card, ...(isCur ? st.cardCur : null), ...(done ? st.cardDone : null) }} onClick={() => setDetail(i)} aria-current={isCur ? 'step' : undefined}>
-                <span style={{ ...st.thumb, ...(s.image ? { backgroundImage: `url(${s.image})` } : null) }} aria-hidden="true">
-                  {s.image ? null : <TypeIcon type={s.type} size={22} />}
-                </span>
-                <span style={{ flex: 1, minWidth: 0, display: 'grid', gap: 3 }}>
-                  <span style={st.cardTop}>
-                    <span style={{ ...st.num, background: done ? '#22A06B' : isCur ? '#F26B1D' : '#9AA8B8' }}>{done ? '✓' : i + 1}</span>
+        <h2 style={st.tourTitle}>רשימת התחנות</h2>
+        <ol style={st.timeline}>
+          {stops.map((s, i) => {
+            const done = trip.verified[s.id];
+            const sk = !done && skipped[s.id];
+            const isCur = i === current;
+            const km = kmTo(i);
+            const dot = done ? '#22A06B' : sk ? '#B9C3CF' : isCur ? '#F26B1D' : '#D5DFEB';
+            return (
+              <li key={s.id} style={st.tItem}>
+                <div style={st.rail} aria-hidden="true">
+                  <span style={{ ...st.dot, borderColor: dot, background: isCur ? dot : '#fff' }}>{done ? '✓' : ''}</span>
+                  {i < stops.length - 1 && <span style={st.railLine} />}
+                </div>
+                <div style={{ flex: 1, minWidth: 0, paddingBottom: 14 }}>
+                  <p style={st.tLabel}>
+                    תחנה {i + 1}
                     {isCur && <span style={st.here}>אתה כאן</span>}
-                  </span>
-                  <b style={st.cardName}>{s.name}</b>
-                  <span style={st.cardMeta}>
-                    <TypeIcon type={s.type} /> {s.type} · ביקור {s.visitTime}
-                    {done ? (done.by === 'manual' ? ' · אושר ידנית' : ' · הגעת') : ''}
-                  </span>
-                </span>
-                <span style={st.chev} aria-hidden="true">‹</span>
-              </button>
-            </li>
-          );
-        })}
-      </ol>
-      <p style={st.hint}>לחצו על תחנה כדי לראות את כל הפרטים. אימות הגעה אפשר לעשות רק בתחנה הנוכחית.</p>
+                    {done && <span style={st.doneTag}>{done.by === 'admin' ? 'אומת ע"י מנהל' : 'הגעת'}</span>}
+                    {sk && <span style={st.skipTag}>דילגת</span>}
+                  </p>
+                  <button
+                    type="button"
+                    style={{ ...st.tCard, ...(isCur ? st.tCardCur : null), ...(sk ? { opacity: 0.6 } : null) }}
+                    onClick={() => setDetail(i)}
+                    aria-current={isCur ? 'step' : undefined}
+                  >
+                    <span style={{ ...st.tThumb, ...(s.image ? { backgroundImage: `url(${s.image})` } : null) }} aria-hidden="true">
+                      {s.image ? null : <TypeIcon type={s.type} size={24} />}
+                    </span>
+                    <span style={{ flex: 1, minWidth: 0, display: 'grid', gap: 4 }}>
+                      <b style={st.tName}>{s.name}</b>
+                      {s.description ? <span style={st.tDesc}>{s.description}</span> : <span style={st.tDesc}><TypeIcon type={s.type} /> {s.type}</span>}
+                      <span style={st.tMetrics}>
+                        <span><b style={st.metric}>{s.visitMinutes || ''}</b>/דק'</span>
+                        {km ? <span><b style={st.metric}>{km}</b>/ק"מ</span> : null}
+                        <span style={st.tType}><TypeIcon type={s.type} /> {s.type}</span>
+                      </span>
+                    </span>
+                  </button>
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+      </section>
 
+      <footer style={st.footer}>
+        <div style={st.footInner}>
+          {allHandled ? (
+            <>
+              <p style={st.eta}>🎉 עברת את כל התחנות!</p>
+              <HoldButton onConfirm={finishAll} />
+            </>
+          ) : (
+            <CurrentActions
+              stop={stops[current]}
+              index={current}
+              userPos={userPos}
+              locStatus={locStatus}
+              lastFix={lastFix}
+              admin={admin}
+              onArrived={(by) => markArrived(current, by)}
+              onSkip={() => setSkipFor(current)}
+              onOpen={() => setDetail(current)}
+            />
+          )}
+        </div>
+      </footer>
+
+      {rateFor !== null && <RateModal stop={stops[rateFor]} onSave={(r) => finishStop(rateFor, r)} onSkip={() => finishStop(rateFor, null)} />}
+      {skipModal}
       {ending === 'confirm' && (
         <Modal onClose={() => setEnding(null)}>
           <h2 style={st.modalTitle}>לסיים את ההרפתקה?</h2>
@@ -286,22 +390,11 @@ export default function GoPage() {
   );
 }
 
-// ---------- דף פרטי תחנה ----------
-function StopDetail({ stop, index, isCurrent, done, userPos, locStatus, lastFix, onBack, onArrived }) {
-  const [drive, setDrive] = useState(null);
+// ---------- אימות הגעה (משותף לרשימה ולמסך הגדול) ----------
+function useVerify(stop, lastFix, onArrived) {
   const [verify, setVerify] = useState({ state: 'idle' });
-  const radius = stop.radius || DEFAULT_RADIUS;
-  const images = [stop.image, ...(stop.gallery || [])].filter(Boolean);
-  const gear = useMemo(() => equipmentFor(stop), [stop]);
-
-  useEffect(() => {
-    if (!userPos || !hasCoords(stop)) return;
-    let alive = true;
-    driveTime(userPos, stop).then((r) => alive && setDrive(r));
-    return () => {
-      alive = false;
-    };
-  }, [stop.id, Math.round((userPos?.lat || 0) * 100), Math.round((userPos?.lng || 0) * 100)]); // eslint-disable-line react-hooks/exhaustive-deps
+  const radius = stop?.radius || DEFAULT_RADIUS;
+  useEffect(() => setVerify({ state: 'idle' }), [stop?.id]);
 
   function judge(me) {
     const meters = airKm(me, stop) * 1000;
@@ -327,6 +420,133 @@ function StopDetail({ stop, index, isCurrent, done, userPos, locStatus, lastFix,
       { enableHighAccuracy: true, maximumAge: 15000, timeout: 15000 },
     );
   }
+  return { verify, check, radius };
+}
+
+// הכפתורים בתחתית: אמת הגעה / דלג (+ אימות מנהל), עם ההודעות של האימות
+function VerifyButtons({ stop, verify, check, radius, locStatus, admin, onArrived, onSkip }) {
+  return (
+    <>
+      {verify.state === 'far' && (
+        <p style={st.warn}>
+          נראה שעוד לא הגעת: המקום במרחק {verify.meters < 1000 ? `${Math.round(verify.meters)} מטר` : formatKm(verify.meters / 1000)}. צריך להיות עד {radius} מטר ממנו.
+        </p>
+      )}
+      {verify.state === 'noLocation' && (
+        <div style={st.warnBox}>
+          <span>
+            {verify.reason === 'stop' && 'למקום הזה אין מיקום מדויק, ולכן אי אפשר לאמת ב-GPS.'}
+            {verify.reason === 'permission' && 'אין גישה למיקום, ולכן אי אפשר לאמת ב-GPS.'}
+            {verify.reason === 'device' && 'המכשיר לא תומך באיתור מיקום.'}
+            {verify.reason === 'timeout' && 'לא הצלחנו לקבל מיקום מה-GPS.'}
+          </span>
+          <button type="button" style={st.manual} onClick={() => onArrived('manual')}>אני כאן, אישור ידני</button>
+        </div>
+      )}
+      <div style={st.actionRow}>
+        <button type="button" style={st.primary} onClick={check} disabled={verify.state === 'checking'}>
+          {verify.state === 'checking' ? 'בודקים מיקום...' : 'אמת הגעה'}
+        </button>
+        <button type="button" style={st.skipBtn} onClick={onSkip}>
+          דלג ←
+        </button>
+      </div>
+      {admin && (
+        <button type="button" style={st.adminBtn} onClick={() => onArrived('admin')}>
+          🛠 אימות מנהל (בלי להיות במקום)
+        </button>
+      )}
+      {locStatus === 'denied' && verify.state === 'idle' && <p style={st.small}>אין גישה למיקום. אפשר לאפשר אותה בהגדרות הדפדפן.</p>}
+    </>
+  );
+}
+
+// בתחתית הרשימה: התחנה הנוכחית, כמה רחוק היא, ואמת / דלג
+function CurrentActions({ stop, index, userPos, locStatus, lastFix, admin, onArrived, onSkip, onOpen }) {
+  const v = useVerify(stop, lastFix, onArrived);
+  const air = userPos && hasCoords(stop) ? airKm(userPos, stop) * 1000 : null;
+  return (
+    <>
+      <button type="button" style={st.curRow} onClick={onOpen}>
+        <span style={{ ...st.num, background: '#F26B1D' }}>{index + 1}</span>
+        <span style={{ flex: 1, minWidth: 0, textAlign: 'start' }}>
+          <b>{stop.name}</b>
+          {air !== null ? <span style={st.curDist}> · {air < 1000 ? `${Math.round(air)} מ'` : formatKm(air / 1000)} ממך</span> : null}
+        </span>
+        <span style={st.curMore}>פרטים ›</span>
+      </button>
+      <VerifyButtons stop={stop} {...v} locStatus={locStatus} admin={admin} onArrived={onArrived} onSkip={onSkip} />
+    </>
+  );
+}
+
+// לחיצה ארוכה לסיום: מחזיקים 1.5 שניות, הכפתור מתמלא ואז מאשר
+function HoldButton({ onConfirm, label = 'החזק כדי לסיים את ההרפתקה', ms = 1500 }) {
+  const [p, setP] = useState(0);
+  const raf = useRef(null);
+  const t0 = useRef(0);
+  const done = useRef(false);
+  function tick(now) {
+    const v = Math.min(1, (now - t0.current) / ms);
+    setP(v);
+    if (v >= 1) {
+      if (!done.current) {
+        done.current = true;
+        try {
+          navigator.vibrate && navigator.vibrate(40);
+        } catch {}
+        onConfirm();
+      }
+      return;
+    }
+    raf.current = requestAnimationFrame(tick);
+  }
+  function start(e) {
+    e.preventDefault();
+    if (done.current) return;
+    t0.current = performance.now();
+    cancelAnimationFrame(raf.current);
+    raf.current = requestAnimationFrame(tick);
+  }
+  function stop() {
+    cancelAnimationFrame(raf.current);
+    if (!done.current) setP(0);
+  }
+  useEffect(() => () => cancelAnimationFrame(raf.current), []);
+  return (
+    <button
+      type="button"
+      style={st.hold}
+      onPointerDown={start}
+      onPointerUp={stop}
+      onPointerLeave={stop}
+      onPointerCancel={stop}
+      onContextMenu={(e) => e.preventDefault()}
+      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && !e.repeat && start(e)}
+      onKeyUp={stop}
+      aria-label={label}
+    >
+      <span style={{ ...st.holdFill, transform: `scaleX(${p})` }} aria-hidden="true" />
+      <span style={{ position: 'relative' }}>{p > 0 && p < 1 ? 'ממשיכים להחזיק...' : label}</span>
+    </button>
+  );
+}
+
+// ---------- דף פרטי תחנה ----------
+function StopDetail({ stop, index, total, isCurrent, done, wasSkipped, userPos, locStatus, lastFix, admin, onBack, onArrived, onSkip }) {
+  const [drive, setDrive] = useState(null);
+  const v = useVerify(stop, lastFix, onArrived);
+  const images = [stop.image, ...(stop.gallery || [])].filter(Boolean);
+  const gear = useMemo(() => equipmentFor(stop), [stop]);
+
+  useEffect(() => {
+    if (!userPos || !hasCoords(stop)) return;
+    let alive = true;
+    driveTime(userPos, stop).then((r) => alive && setDrive(r));
+    return () => {
+      alive = false;
+    };
+  }, [stop.id, Math.round((userPos?.lat || 0) * 100), Math.round((userPos?.lng || 0) * 100)]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const air = userPos && hasCoords(stop) ? airKm(userPos, stop) * 1000 : null;
   const safety = [
@@ -336,8 +556,8 @@ function StopDetail({ stop, index, isCurrent, done, userPos, locStatus, lastFix,
   ].filter(Boolean);
 
   return (
-    <main dir="rtl" style={{ ...st.page, paddingBottom: isCurrent && !done ? 200 : 40 }}>
-      <button type="button" style={st.back} onClick={onBack}>→ לכל התחנות</button>
+    <main dir="rtl" style={{ ...st.page, paddingBottom: isCurrent && !done ? 260 : 40 }}>
+      <button type="button" style={st.back} onClick={onBack}>→ לרשימת התחנות</button>
 
       <div style={st.gallery} aria-label="תמונות">
         {images.length ? (
@@ -348,7 +568,10 @@ function StopDetail({ stop, index, isCurrent, done, userPos, locStatus, lastFix,
       </div>
 
       <header style={{ display: 'grid', gap: 6 }}>
-        <p style={st.kicker}>תחנה {index + 1}</p>
+        <p style={st.kicker}>
+          תחנה {index + 1} מתוך {total}
+          {isCurrent && !done ? <span style={st.here}>אתה כאן</span> : null}
+        </p>
         <h1 style={st.h1}>{stop.name}</h1>
         <div style={st.chips}>
           <span style={st.tag}><TypeIcon type={stop.type} /> {stop.type}</span>
@@ -379,7 +602,8 @@ function StopDetail({ stop, index, isCurrent, done, userPos, locStatus, lastFix,
       <Reviews placeIds={[stop.id]} limit={3} />
 
       {done && <p style={st.success}>✓ {done.by === 'manual' ? 'אישרת שהגעת לכאן' : 'הגעת לכאן'}{done.rating ? ` · דירגת ${done.rating}/5` : ''}</p>}
-      {!isCurrent && !done && <p style={st.hint}>אפשר לאמת הגעה רק בתחנה הנוכחית.</p>}
+      {wasSkipped && !done && <p style={st.hint}>דילגת על התחנה הזו.</p>}
+      {!isCurrent && !done && !wasSkipped && <p style={st.hint}>אפשר לאמת הגעה או לדלג רק בתחנה הנוכחית.</p>}
 
       {isCurrent && !done && (
         <footer style={st.footer}>
@@ -390,26 +614,7 @@ function StopDetail({ stop, index, isCurrent, done, userPos, locStatus, lastFix,
                 {drive ? ` · ${drive.estimated ? 'כ-' : ''}${formatMinutes(drive.minutes)} נסיעה` : ''}
               </p>
             )}
-            {verify.state === 'far' && (
-              <p style={st.warn}>
-                נראה שעוד לא הגעת: המקום במרחק {verify.meters < 1000 ? `${Math.round(verify.meters)} מטר` : formatKm(verify.meters / 1000)}. צריך להיות עד {radius} מטר ממנו.
-              </p>
-            )}
-            {verify.state === 'noLocation' && (
-              <div style={st.warnBox}>
-                <span>
-                  {verify.reason === 'stop' && 'למקום הזה אין מיקום מדויק, ולכן אי אפשר לאמת ב-GPS.'}
-                  {verify.reason === 'permission' && 'אין גישה למיקום, ולכן אי אפשר לאמת ב-GPS.'}
-                  {verify.reason === 'device' && 'המכשיר לא תומך באיתור מיקום.'}
-                  {verify.reason === 'timeout' && 'לא הצלחנו לקבל מיקום מה-GPS.'}
-                </span>
-                <button type="button" style={st.manual} onClick={() => onArrived('manual')}>אני כאן, אישור ידני</button>
-              </div>
-            )}
-            <button type="button" style={st.primary} onClick={check} disabled={verify.state === 'checking'}>
-              {verify.state === 'checking' ? 'בודקים את המיקום שלך...' : 'אמת הגעה'}
-            </button>
-            {locStatus === 'denied' && verify.state === 'idle' && <p style={st.small}>אין גישה למיקום. אפשר לאפשר אותה בהגדרות הדפדפן.</p>}
+            <VerifyButtons stop={stop} {...v} locStatus={locStatus} admin={admin} onArrived={onArrived} onSkip={onSkip} />
           </div>
         </footer>
       )}
@@ -487,9 +692,9 @@ function Summary({ trip, userPos, onDone, onHome }) {
         <h1 style={{ ...st.h1, textAlign: 'center' }}>{complete ? 'ההרפתקה הושלמה!' : 'סיימת את ההרפתקה'}</h1>
         <p style={st.progressText}>{trip.adventure.title} · {done} מתוך {stops.length} תחנות</p>
         {complete ? (
-          <div style={st.reward} role="status"><span style={st.coin} aria-hidden="true" /><b><bdi dir="ltr">+{ADVENTURE_REWARD}</bdi> נקודות</b>{trip.coins ? <span style={{ color: '#A07A2A' }}> · יש לך {trip.coins}</span> : null}</div>
+          <div style={st.reward} role="status"><img src="/coin.png" alt="" style={st.coin} /><b><bdi dir="ltr">+{ADVENTURE_REWARD}</bdi> נקודות</b>{trip.coins ? <span style={{ color: '#A07A2A' }}> · יש לך {trip.coins}</span> : null}</div>
         ) : (
-          <p style={st.small}>הנקודות ניתנות רק כשמגיעים לכל התחנות.</p>
+          <p style={st.small}>המטבעות ניתנים רק כשמגיעים לכל התחנות{stops.some((s) => trip.skipped?.[s.id]) ? ' (דילגת על חלק מהן)' : ''}.</p>
         )}
         {trip.achievements?.length ? (
           <ul style={{ listStyle: 'none', margin: '10px 0 0', padding: 0, display: 'grid', gap: 6 }} aria-label="הישגים חדשים">
@@ -522,6 +727,8 @@ function Summary({ trip, userPos, onDone, onHome }) {
         )}
       </section>
 
+      <AdventureMap stops={stops} userPos={null} selected={null} height={220} onSelect={() => {}} />
+
       <ol style={st.cards}>
         {stops.map((s, i) => {
           const v = trip.verified[s.id];
@@ -529,7 +736,7 @@ function Summary({ trip, userPos, onDone, onHome }) {
             <li key={s.id} style={st.sumItem}>
               <span style={{ ...st.num, background: v ? '#22A06B' : '#CBD5E1' }}>{v ? '✓' : '–'}</span>
               <span style={{ flex: 1 }}>{i + 1}. {s.name}</span>
-              <span style={st.small}>{v ? (v.rating ? `${v.rating}/5` : 'הגעת') : 'לא הגעת'}</span>
+              <span style={st.small}>{v ? (v.rating ? `${v.rating}/5` : 'הגעת') : trip.skipped?.[s.id] ? 'דילגת' : 'לא הגעת'}</span>
             </li>
           );
         })}
@@ -595,7 +802,7 @@ const st = {
   thumb: { width: 64, height: 64, borderRadius: 14, flex: '0 0 auto', background: '#DCEAFB center/cover no-repeat', color: '#1E6FD9', display: 'flex', alignItems: 'center', justifyContent: 'center' },
   cardTop: { display: 'flex', alignItems: 'center', gap: 6 },
   num: { width: 24, height: 24, borderRadius: '50%', color: '#fff', fontWeight: 700, fontSize: 12, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flex: '0 0 auto' },
-  here: { background: '#FFF1E6', color: '#B4470F', borderRadius: 999, padding: '2px 8px', fontSize: 12, fontWeight: 700 },
+  here: { background: '#FFF1E6', color: '#B4470F', borderRadius: 999, padding: '2px 8px', fontSize: 12, fontWeight: 700, marginInlineStart: 6 },
   cardName: { fontSize: 16 },
   cardMeta: { fontSize: 12, color: MUTED, display: 'inline-flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' },
   chev: { color: '#9AA8B8', fontSize: 20 },
@@ -635,6 +842,34 @@ const st = {
   ta: { font: 'inherit', fontSize: 15, padding: 12, borderRadius: 12, border: '1px solid #D5DFEB', resize: 'vertical', width: '100%', boxSizing: 'border-box' },
   doneHead: { display: 'grid', justifyItems: 'center', gap: 4, marginTop: 10, textAlign: 'center' },
   reward: { display: 'flex', alignItems: 'center', gap: 8, background: '#FFF8E1', border: '2px solid #F6D58B', borderRadius: 999, padding: '8px 16px', marginTop: 6, fontSize: 16, color: '#8A5A00' },
-  coin: { width: 22, height: 22, borderRadius: '50%', background: 'radial-gradient(circle at 35% 30%, #ffd86b, #f0a41a)', boxShadow: 'inset 0 0 0 2px #f6b93b', display: 'inline-block' },
+  coin: { width: 28, height: 28, objectFit: 'contain' },
+  listPage: { minHeight: '100vh', background: 'linear-gradient(180deg,#9CC9EE 0%,#F6F9FC 320px)', color: INK, fontFamily: '"Rubik", system-ui, sans-serif', maxWidth: 480, margin: '0 auto', paddingBottom: 230, boxSizing: 'border-box' },
+  hero: { borderRadius: '0 0 28px 28px', overflow: 'hidden' },
+  listSheet: { position: 'relative', marginTop: -26, background: '#fff', borderRadius: '28px 28px 0 0', padding: '20px 20px 10px', display: 'flex', flexDirection: 'column', gap: 12, boxShadow: '0 -8px 24px rgba(20,33,61,.08)', zIndex: 2 },
+  tourTitle: { margin: '6px 0 0', fontSize: 24, fontWeight: 800, fontFamily: 'Georgia, "Rubik", serif', color: '#1F2A44' },
+  timeline: { listStyle: 'none', margin: 0, padding: 0 },
+  tItem: { display: 'flex', gap: 12 },
+  rail: { width: 22, display: 'flex', flexDirection: 'column', alignItems: 'center', flex: '0 0 auto', paddingTop: 2 },
+  dot: { width: 18, height: 18, borderRadius: '50%', border: '4px solid', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 9, fontWeight: 800, boxShadow: '0 0 0 4px #FFF1E6' },
+  railLine: { flex: 1, width: 2, background: '#EEE3D6', marginTop: 4 },
+  tLabel: { margin: '0 0 8px', fontSize: 13, color: '#8A96A8', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
+  doneTag: { background: '#E6F6EE', color: '#17784F', borderRadius: 999, padding: '2px 8px', fontSize: 12, fontWeight: 700 },
+  skipTag: { background: '#EEF1F5', color: '#5B6677', borderRadius: 999, padding: '2px 8px', fontSize: 12, fontWeight: 700 },
+  tCard: { width: '100%', display: 'flex', gap: 12, alignItems: 'flex-start', textAlign: 'start', background: '#fff', border: '2px solid transparent', borderRadius: 18, padding: 6, cursor: 'pointer', fontFamily: 'inherit', color: INK },
+  tCardCur: { borderColor: '#F7B48A', background: '#FFFAF5', boxShadow: '0 6px 18px rgba(242,107,29,.14)' },
+  tThumb: { width: 78, height: 78, borderRadius: 14, flex: '0 0 auto', background: '#DCEAFB center/cover no-repeat', color: '#1E6FD9', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 6px 14px rgba(20,33,61,.15)' },
+  tName: { fontSize: 16 },
+  tDesc: { fontSize: 13, color: '#8A96A8', lineHeight: 1.45, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' },
+  tMetrics: { display: 'flex', gap: 14, fontSize: 12, color: '#8A96A8', alignItems: 'center', flexWrap: 'wrap', marginTop: 2 },
+  metric: { color: '#E8833A', fontSize: 15, fontWeight: 700, fontVariantNumeric: 'tabular-nums' },
+  tType: { display: 'inline-flex', alignItems: 'center', gap: 3 },
+  actionRow: { display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 8 },
+  skipBtn: { ...pill, minHeight: 54, background: '#fff', color: INK, border: '2px solid #D5DFEB' },
+  adminBtn: { ...pill, padding: '9px 0', fontSize: 14, background: '#14213D', color: '#fff' },
+  curRow: { display: 'flex', alignItems: 'center', gap: 8, background: '#fff', border: `1px solid ${LINE}`, borderRadius: 14, padding: '8px 10px', cursor: 'pointer', fontFamily: 'inherit', color: INK, fontSize: 15 },
+  curDist: { color: MUTED, fontWeight: 400, fontSize: 13 },
+  curMore: { color: '#1E6FD9', fontWeight: 600, fontSize: 13 },
+  hold: { ...pill, position: 'relative', overflow: 'hidden', minHeight: 58, background: '#C2520F', color: '#fff', userSelect: 'none', WebkitUserSelect: 'none', touchAction: 'none' },
+  holdFill: { position: 'absolute', inset: 0, background: '#F26B1D', transformOrigin: 'right', transition: 'none' },
   sumItem: { display: 'flex', alignItems: 'center', gap: 10, background: '#fff', border: `1px solid ${LINE}`, borderRadius: 14, padding: '10px 12px', fontSize: 15 },
 };
