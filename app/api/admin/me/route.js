@@ -1,5 +1,6 @@
 import { adminEnabled, isAdmin } from '../../../../lib/admin';
 import { storageMode, loadAdminPlaces } from '../../../../lib/content';
+import { supabaseProblem } from '../../../../lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,6 +16,7 @@ export async function GET(request) {
     hasSupabase: !!(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY),
     admin,
     storage: storageMode,
+    supabaseProblem: admin ? supabaseProblem : undefined,
     imported: admin ? !!(await loadAdminPlaces()) : undefined,
   });
 }

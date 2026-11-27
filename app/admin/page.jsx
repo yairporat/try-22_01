@@ -80,6 +80,10 @@ function Admin() {
         </div>
       </header>
 
+      {me.supabaseProblem && me.storage !== 'supabase' && (
+        <div style={st.warn}>⚠️ Supabase לא מחובר: {me.supabaseProblem}. מתקנים ב-Vercel (Environment Variables) ולוחצים Redeploy.</div>
+      )}
+
       {me.storage === 'temporary' && (
         <div style={st.warn}>
           האתר באוויר ועוד לא מחובר ל-Supabase, ולכן שינויים ייעלמו אחרי זמן קצר. ב-Vercel מוסיפים את SUPABASE_URL ו-SUPABASE_SERVICE_ROLE_KEY ומריצים ב-Supabase את הקובץ supabase/migrations/003_admin_and_public_reviews.sql.
