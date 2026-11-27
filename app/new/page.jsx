@@ -32,6 +32,7 @@ function NewAdventure() {
   const [duration, setDuration] = useState('');
   const [level, setLevel] = useState('');
   const [depart, setDepart] = useState('');
+  const [newOnly, setNewOnly] = useState(true); // רק מקומות שעוד לא ביקרתי בהם
 
   useEffect(() => {
     restoreProfile().then((p) => !p && router.replace('/welcome'));
@@ -46,6 +47,7 @@ function NewAdventure() {
     if (m === 'surprise') setMode('surprise');
     else if (m === 'custom' || r) setMode('custom');
     if (/^\d{2}:\d{2}$/.test(params.get('depart') || '')) setDepart(params.get('depart'));
+    if (params.get('newOnly') === '0') setNewOnly(false);
   }, [params, router]);
 
   const ready = mode === 'surprise' || (mode === 'custom' && region && duration && level);
@@ -59,6 +61,7 @@ function NewAdventure() {
       q.set('level', level);
     }
     if (depart) q.set('depart', depart);
+    if (newOnly) q.set('newOnly', '1');
     router.push(`/adventure?${q.toString()}`);
   }
 
@@ -135,6 +138,11 @@ function NewAdventure() {
             <T k="new.trafficNote" as="small" className="small" />
           </div>
 
+          <label className="newOnly">
+            <input type="checkbox" checked={newOnly} onChange={(e) => setNewOnly(e.target.checked)} />
+            <T k="new.newOnly" />
+          </label>
+
           <button type="button" className={`find${ready ? ' ready' : ''}`} disabled={!ready} onClick={find}>
             {t('new.find')}
             <span className="arrow" aria-hidden="true">
@@ -175,6 +183,8 @@ function NewAdventure() {
         .chip.on { border-color: var(--blue); background: var(--blue); color: #fff; }
         .chip.sel { appearance: none; text-align: center; }
         .small { font-size: 12px; color: var(--muted); }
+        .newOnly { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: #3A4658; cursor: pointer; }
+        .newOnly input { width: 20px; height: 20px; accent-color: var(--blue); }
         .find { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 56px; border: none; border-radius: 999px; font-size: 17px; font-weight: 700; color: #fff; background: var(--orange); cursor: not-allowed; opacity: .45; }
         .find.ready { cursor: pointer; opacity: 1; box-shadow: 0 6px 0 var(--orange-dark); }
         .find.ready:active { transform: translateY(2px); box-shadow: 0 4px 0 var(--orange-dark); }
