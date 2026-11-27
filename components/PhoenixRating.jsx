@@ -6,8 +6,10 @@ import { useState } from 'react';
 
 const LABELS = ['', 'לא נהניתי', 'היה בסדר', 'טוב', 'מאוד טוב', 'מושלם!'];
 
-export default function PhoenixRating({ title, placeholder = 'מה אהבתם? מה היה כדאי לשפר?', submitLabel = 'שמירה', skipLabel = 'דלג', onSubmit, onSkip, busy = false }) {
+// share: מציג "לשתף עם כל המטיילים" (מסומן כברירת מחדל) – ההמלצה תופיע לכולם בעמוד המקום
+export default function PhoenixRating({ title, placeholder = 'מה אהבתם? מה היה כדאי לשפר?', submitLabel = 'שמירה', skipLabel = 'דלג', onSubmit, onSkip, busy = false, share = false }) {
   const [rating, setRating] = useState(0);
+  const [shared, setShared] = useState(true);
   const [hover, setHover] = useState(0);
   const [text, setText] = useState('');
   const shown = hover || rating;
@@ -27,11 +29,17 @@ export default function PhoenixRating({ title, placeholder = 'מה אהבתם? �
       </div>
       <p style={s.label}>{LABELS[shown] || 'בחרו דירוג'}</p>
       <label style={s.cl}>
-        הערות וביקורת (לא חובה)
+        {share ? 'המלצה למטיילים אחרים (לא חובה)' : 'הערות וביקורת (לא חובה)'}
         <textarea value={text} onChange={(e) => setText(e.target.value)} maxLength={1000} rows={3} placeholder={placeholder} style={s.ta} />
       </label>
+      {share && text.trim() ? (
+        <label style={s.share}>
+          <input type="checkbox" checked={shared} onChange={(e) => setShared(e.target.checked)} />
+          להציג את ההמלצה לכל המטיילים (עם השם הפרטי שלי)
+        </label>
+      ) : null}
       <div style={s.actions}>
-        <button type="button" style={{ ...s.save, opacity: rating && !busy ? 1 : 0.45 }} disabled={!rating || busy} onClick={() => onSubmit({ rating, review: text.trim() })}>
+        <button type="button" style={{ ...s.save, opacity: rating && !busy ? 1 : 0.45 }} disabled={!rating || busy} onClick={() => onSubmit({ rating, review: text.trim(), share: share ? shared : false })}>
           {busy ? 'שומרים...' : submitLabel}
         </button>
         {onSkip ? (
@@ -52,6 +60,7 @@ const s = {
   label: { margin: 0, textAlign: 'center', color: '#5B6677', fontSize: 14, minHeight: 20 },
   cl: { display: 'grid', gap: 4, fontSize: 13, fontWeight: 600, color: '#3A4658' },
   ta: { font: 'inherit', fontSize: 15, fontWeight: 400, padding: 12, borderRadius: 12, border: '1px solid #D5DFEB', resize: 'vertical', width: '100%', boxSizing: 'border-box', color: '#14213D' },
+  share: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#3A4658', cursor: 'pointer' },
   actions: { display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 8, marginTop: 4 },
   save: { border: 0, borderRadius: 999, padding: '12px 0', fontSize: 16, fontWeight: 700, background: '#F26B1D', color: '#fff', cursor: 'pointer', boxShadow: '0 4px 0 #C2520F', fontFamily: 'inherit' },
   skip: { border: '1px solid #D5DFEB', borderRadius: 999, background: '#fff', color: '#3A4658', fontSize: 15, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' },

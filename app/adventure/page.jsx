@@ -11,6 +11,9 @@ import FitNotice from '../../components/FitNotice';
 import { resolveOrigin } from '../../lib/origin';
 import { formatMinutes } from '../../lib/travel';
 import { loadProfile } from '../../lib/profile';
+import OriginPicker from '../../components/OriginPicker';
+import Reviews from '../../components/Reviews';
+import { useSite } from '../../components/Site';
 
 export default function AdventurePage() {
   return (
@@ -31,6 +34,9 @@ function AdventurePreview() {
   const [locStatus, setLocStatus] = useState('pending');
   const [adventure, setAdventure] = useState(null);
   const [error, setError] = useState('');
+  const [fitClosed, setFitClosed] = useState(false);
+  const [originVersion, setOriginVersion] = useState(0); // משתנה כשבוחרים נקודת יציאה אחרת
+  const { t } = useSite();
   const router = useRouter();
   const params = useSearchParams();
   const query = params.toString();
@@ -40,6 +46,7 @@ function AdventurePreview() {
     let alive = true;
     setAdventure(null);
     setError('');
+    setFitClosed(false);
     resolveOrigin().then((origin) => {
       if (!alive) return;
       const q = new URLSearchParams(query);
@@ -55,7 +62,7 @@ function AdventurePreview() {
     return () => {
       alive = false;
     };
-  }, [query]);
+  }, [query, originVersion]);
 
   // המיקום של המשתמש (הדפדפן מבקש הרשאה בפעם הראשונה)
   useEffect(() => {
@@ -106,6 +113,32 @@ function AdventurePreview() {
     router.push('/adventure/go');
   };
 
+  // חזרה למסך "הרפתקאה חדשה" עם אותן בחירות, כדי לשנות אותן
+  const chooseOther = () => {
+    const q = new URLSearchParams({ mode: 'custom' });
+    for (const k of ['region', 'duration', 'level', 'depart']) {
+      const v = params.get(k) || (k === 'region' ? adventure?.region : k === 'duration' ? adventure?.duration : k === 'level' ? adventure?.difficulty : '');
+      if (v) q.set(k, v);
+    }
+    router.push(`/new?${q.toString()}`);
+  };
+  const pickSuggestion = (sug) => {
+    const q = new URLSearchParams({ mode: 'custom', region: sug.region, duration: sug.duration, level: sug.level });
+    if (sug.placeId) q.set('id', sug.placeId);
+    if (params.get('depart')) q.set('depart', params.get('depart'));
+    router.push(`/adventure?${q.toString()}`);
+  };
+  const fitModal =
+    adventure && adventure.fit && !adventure.fit.fits && !fitClosed ? (
+      <FitNotice
+        adventure={adventure}
+        onPick={pickSuggestion}
+        onChooseOther={chooseOther}
+        onOriginChange={() => setOriginVersion((v) => v + 1)}
+        onClose={() => setFitClosed(true)}
+      />
+    ) : null;
+
   if (error || !adventure) {
     return (
       <main dir="rtl" style={st.page}>
@@ -120,6 +153,8 @@ function AdventurePreview() {
       <main dir="rtl" style={st.page}>
         <button type="button" style={st.back} onClick={() => router.push('/')}>→ חזרה</button>
         <p style={st.status}>עוד אין מקומות שמתאימים לבחירה הזו ב{adventure.region}. נסו רמת קושי אחרת או אזור אחר.</p>
+        <button type="button" style={st.start} onClick={chooseOther}>בחירה אחרת</button>
+        {fitModal}
       </main>
     );
   }
@@ -201,15 +236,9 @@ function AdventurePreview() {
         </div>
       )}
 
-      <FitNotice
-        adventure={adventure}
-        onPick={(sug) => {
-          const q = new URLSearchParams({ mode: 'custom', region: sug.region, duration: sug.duration, level: sug.level });
-          if (sug.placeId) q.set('id', sug.placeId);
-          router.push(`/adventure?${q.toString()}`);
-        }}
-        onChooseOther={() => router.push('/')}
-      />
+      {fitModal}
+
+      <OriginPicker onChange={() => setOriginVersion((v) => v + 1)} />
 
       <AdventureMap stops={adventure.stops} userPos={userPos} selected={selected} onSelect={setSelected} height={200} />
 
@@ -226,7 +255,15 @@ function AdventurePreview() {
             >
               {s.image ? null : <TypeIcon type={s.type} size={20} />}
             </span>
-            <span style={st.name}>{s.name}</span>
+            <span style={st.name}>
+              {s.name}
+              {ratings?.places?.[s.id] ? (
+                <small style={st.stopRate}>
+                  <img src="/phoenix-pin.png" alt="" style={{ width: 14, height: 14, objectFit: 'contain' }} />
+                  {ratings.places[s.id].avg} ({ratings.places[s.id].count})
+                </small>
+              ) : null}
+            </span>
             <span style={st.tag}>
               <TypeIcon type={s.type} />
               {s.type}
@@ -235,7 +272,9 @@ function AdventurePreview() {
         ))}
       </ol>
 
-      <details style={st.more}>
+      <Reviews placeIds={adventure.stops.map((s) => s.id)} names={Object.fromEntries(adventure.stops.map((s) => [s.id, s.name]))} />
+
+      <details style={st.moreBox}>
         <summary style={st.moreSum}>לוח זמנים ונסיעות</summary>
         <div style={{ marginTop: 12 }}>
           <Timeline adventure={adventure} />
@@ -247,7 +286,7 @@ function AdventurePreview() {
 
       <footer style={st.footer}>
         <button type="button" style={st.start} onClick={handleStart} disabled={starting}>
-          {starting ? 'יוצאים...' : 'יוצאים להרפתקה'}
+          {starting ? 'יוצאים...' : t('adventure.start')}
         </button>
       </footer>
     </main>
@@ -281,9 +320,10 @@ const st = {
   itemOn: { borderColor: '#1E6FD9' },
   num: { width: 26, height: 26, borderRadius: '50%', background: '#F26B1D', color: '#fff', fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: '0 0 auto' },
   thumb: { width: 48, height: 48, borderRadius: 12, flex: '0 0 auto', background: '#DCEAFB center/cover no-repeat', color: '#1E6FD9', display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  name: { flex: 1, minWidth: 0, fontSize: 15, fontWeight: 600 },
+  name: { flex: 1, minWidth: 0, fontSize: 15, fontWeight: 600, display: 'grid' },
   tag: { display: 'inline-flex', alignItems: 'center', gap: 4, background: '#EAF2FE', color: '#1557AD', borderRadius: 999, padding: '4px 10px', fontSize: 12, fontWeight: 600, flex: '0 0 auto' },
-  more: { background: '#fff', borderRadius: 18, padding: '12px 14px', border: `1px solid ${LINE}` },
+  moreBox: { background: '#fff', borderRadius: 18, padding: '12px 14px', border: `1px solid ${LINE}` },
+  stopRate: { display: 'flex', alignItems: 'center', gap: 3, fontSize: 12, fontWeight: 500, color: '#B4470F', marginTop: 2 },
   moreSum: { cursor: 'pointer', fontWeight: 600, fontSize: 15 },
   hint: { margin: 0, fontSize: 13, color: MUTED },
   footer: { position: 'fixed', bottom: 0, left: 0, right: 0, padding: '12px 20px calc(12px + env(safe-area-inset-bottom, 0px))', background: 'linear-gradient(to top, #F6F9FC 75%, rgba(246,249,252,0))', display: 'flex', justifyContent: 'center', zIndex: 1000 },

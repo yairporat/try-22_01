@@ -11,6 +11,7 @@ import {
   isValidEmail,
   loadLastDetails,
   loadProfile,
+  restoreProfile,
   loadWallet,
   logout,
   register,
@@ -31,8 +32,10 @@ export default function ProfilePage() {
     const q = new URLSearchParams(window.location.search);
     if (q.get('mode') === 'login') setMode('login');
     if (q.get('next')?.startsWith('/')) setNext(q.get('next'));
-    setProfile(loadProfile());
-    setReady(true);
+    restoreProfile().then((p) => {
+      setProfile(p);
+      setReady(true);
+    });
   }, []);
 
   function signedIn(p) {
@@ -361,7 +364,7 @@ function Profile({ profile, onChange }) {
       ) : (
         <div style={st.card}>
           <p style={{ margin: 0, color: '#6b7b88' }}>עוד לא סיימתם הרפתקה. כל הרפתקה שתסיימו תוסיף {ADVENTURE_REWARD} מטבעות.</p>
-          <button type="button" style={st.primary} onClick={() => router.push('/')}>יוצאים להרפתקה</button>
+          <button type="button" style={st.primary} onClick={() => router.push('/new')}>יוצאים להרפתקה</button>
         </div>
       )}
 
@@ -378,6 +381,7 @@ function Profile({ profile, onChange }) {
       ) : (
         <button type="button" style={st.logout} onClick={() => setConfirmOut(true)}>התנתקות</button>
       )}
+      <a href="/admin" style={st.adminLink}>כניסת מנהל</a>
     </>
   );
 }
@@ -444,6 +448,7 @@ const st = {
   plus: { color: '#17784f', fontWeight: 800, background: '#e6f6ee', borderRadius: 999, padding: '4px 10px', flex: '0 0 auto' },
   confirm: { background: '#fff4e5', borderRadius: 14, padding: 12, display: 'grid', gap: 10, fontSize: 14 },
   small: { font: 'inherit', fontWeight: 800, padding: '8px 14px', border: `2px solid ${LINE}`, borderRadius: 12, background: '#fff', cursor: 'pointer', color: INK },
+  adminLink: { justifySelf: 'center', color: '#8A96A8', fontSize: 13, padding: 8, textDecoration: 'none' },
   logout: { background: 'none', border: 0, color: MUTED, fontWeight: 700, padding: 8, cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.95rem' },
   srOnly: { position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' },
 };

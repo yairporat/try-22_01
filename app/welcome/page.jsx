@@ -3,17 +3,22 @@
 // מסך הפתיחה: מופיע למשתמשים חדשים לפני המסך הראשי.
 // "בואו נתחיל" → הרשמה. "כבר יש לי חשבון" → התחברות לפי אימייל.
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { loadProfile } from '../../lib/profile';
+import { restoreProfile } from '../../lib/profile';
+import { T } from '../../components/Site';
 
 export default function WelcomePage() {
   const router = useRouter();
 
-  // מי שכבר רשום – ישר למסך הראשי
+  const [checking, setChecking] = useState(true);
+
+  // מי שכבר רשום (במכשיר או בעוגייה) – ישר למסך הראשי
   useEffect(() => {
-    if (loadProfile()) router.replace('/');
+    restoreProfile().then((p) => (p ? router.replace('/') : setChecking(false)));
   }, [router]);
+
+  if (checking) return <main dir="rtl" style={st.page} />;
 
   return (
     <main dir="rtl" style={st.page}>
@@ -23,19 +28,19 @@ export default function WelcomePage() {
       </div>
 
       <h1 style={st.title}>
-        ברוכים הבאים ל-
+        <T k="welcome.title" />
         <span style={st.name} dir="ltr">THE HIDDEN VALLEY</span>
       </h1>
-      <p style={st.sub}>גלו הרפתקאות נסתרות בטבע של ישראל</p>
+      <T k="welcome.sub" as="p" style={st.sub} />
 
       <Landscape />
 
       <div style={st.actions}>
         <button type="button" style={st.primary} onClick={() => router.push('/profile?mode=signup&next=/')}>
-          בואו נתחיל
+          <T k="welcome.start" />
         </button>
         <button type="button" style={st.link} onClick={() => router.push('/profile?mode=login&next=/')}>
-          כבר יש לי חשבון
+          <T k="welcome.login" />
         </button>
       </div>
     </main>
