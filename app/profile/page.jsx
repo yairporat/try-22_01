@@ -285,7 +285,7 @@ function Profile({ profile, onChange }) {
       </section>
 
       <section style={st.coins}>
-        <span style={st.coinBig} aria-hidden="true" />
+        <img src="/coin.png" alt="" style={st.coinBig} />
         <div>
           <b style={st.coinNum}>{wallet.coins}</b>
           <p style={st.coinLabel}>מטבעות · {ADVENTURE_REWARD} על כל הרפתקה שמסיימים</p>
@@ -433,7 +433,7 @@ const st = {
   email: { margin: '2px 0 0', color: MUTED, fontSize: '0.9rem', textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis' },
   since: { margin: '2px 0 0', color: MUTED, fontSize: '0.8rem' },
   coins: { ...card, display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', background: '#fff8e1', borderColor: '#f6d58b' },
-  coinBig: { width: 48, height: 48, borderRadius: '50%', background: 'radial-gradient(circle at 35% 30%, #ffd86b, #f0a41a)', boxShadow: 'inset 0 0 0 3px #f6b93b', flex: '0 0 auto' },
+  coinBig: { width: 56, height: 56, objectFit: 'contain', flex: '0 0 auto', filter: 'drop-shadow(0 3px 6px rgba(138,90,0,.35))' },
   coinNum: { fontSize: '2rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: '#8a5a00' },
   coinLabel: { margin: 0, fontSize: '0.85rem', color: '#a07a2a' },
   stats: { display: 'flex', gap: 10 },

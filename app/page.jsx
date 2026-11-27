@@ -65,7 +65,7 @@ export default function Home() {
             <T k="home.title" as="h1" className="title" />
           </div>
           <button type="button" className="points" onClick={() => router.push('/profile')} aria-label={`${coins} מטבעות`}>
-            <img src="/phoenix-pin.png" alt="" />
+            <img src="/coin.png" alt="" />
             {coins}
           </button>
         </header>
@@ -179,7 +179,7 @@ export default function Home() {
         .hello { margin: 0 0 4px; font-size: 17px; color: var(--blue); font-weight: 500; }
         .title { margin: 0; font-size: 30px; line-height: 1.15; font-weight: 800; letter-spacing: -.3px; }
         .points { display: flex; align-items: center; gap: 6px; background: #fff; color: #B4470F; border: 0; border-radius: 999px; padding: 6px 12px 6px 8px; font-weight: 700; font-size: 15px; font-variant-numeric: tabular-nums; box-shadow: 0 4px 14px rgba(20,33,61,.08); cursor: pointer; margin-top: 4px; }
-        .points img { width: 22px; height: 22px; object-fit: contain; }
+        .points img { width: 26px; height: 26px; object-fit: contain; }
 
         .cards { display: flex; gap: 16px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 4px 24px 10px; scrollbar-width: none; }
         .cards::-webkit-scrollbar { display: none; }
