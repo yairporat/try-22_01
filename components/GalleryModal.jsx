@@ -18,7 +18,7 @@ export default function GalleryModal({ images, start = 0, onClose }) {
   return (
     <div style={s.overlay} role="dialog" aria-modal="true" aria-label="גלריית תמונות">
       <div style={s.top}>
-        <span style={s.count}>{index + 1} / {images.length}</span>
+        <span style={s.count} dir="ltr">{index + 1} / {images.length}</span>
         <button type="button" style={s.close} onClick={onClose} aria-label="סגירה">✕</button>
       </div>
       <div
