@@ -53,7 +53,7 @@ function Admin() {
   };
 
   if (!me) return <main dir="rtl" style={st.page}><p style={st.muted}>טוען...</p></main>;
-  if (!me.admin) return <Login enabled={me.enabled} onDone={() => { loadMe(); site.refresh(); }} />;
+  if (!me.admin) return <Login enabled={me.enabled} me={me} onDone={() => { loadMe(); site.refresh(); }} />;
 
   return (
     <main dir="rtl" style={st.page}>
@@ -114,7 +114,7 @@ function Admin() {
 }
 
 // ---------------- כניסה ----------------
-function Login({ enabled, onDone }) {
+function Login({ enabled, me = {}, onDone }) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -135,7 +135,14 @@ function Login({ enabled, onDone }) {
       <form onSubmit={submit} style={st.loginBox}>
         <img src="/phoenix-pin.png" alt="" style={{ height: 80, justifySelf: 'center' }} />
         <h1 style={{ ...st.h1, textAlign: 'center' }}>כניסת מנהל</h1>
-        {!enabled && <p style={st.warn}>כדי להפעיל כניסת מנהל מגדירים ב-Vercel משתנה סביבה בשם ADMIN_PASSWORD עם הסיסמה שתבחרו, ופורסים מחדש.</p>}
+        {!enabled && (
+          <div style={st.warn}>
+            <span>כדי להפעיל כניסת מנהל מגדירים ב-Vercel משתנה סביבה בשם ADMIN_PASSWORD עם הסיסמה שתבחרו, ופורסים מחדש.</span>
+            <small dir="ltr" style={{ fontFamily: 'monospace', textAlign: 'left' }}>
+              env: {me.env} · branch: {me.branch || '-'} · password: {me.hasPassword ? 'set (too short?)' : 'missing'} · supabase: {me.hasSupabase ? 'yes' : 'no'}
+            </small>
+          </div>
+        )}
         <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="סיסמה" style={st.input} autoFocus autoComplete="current-password" aria-label="סיסמה" />
         {error && <p style={st.err}>{error}</p>}
         <button type="submit" style={st.primary} disabled={busy || !password}>

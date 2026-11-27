@@ -8,6 +8,11 @@ export async function GET(request) {
   const admin = isAdmin(request);
   return Response.json({
     enabled: adminEnabled,
+    // לבדיקה כשהכניסה לא עובדת: באיזו סביבה וענף השרת רץ, והאם הוא רואה את ההגדרות (בלי הערכים עצמם)
+    env: process.env.VERCEL_ENV || 'local',
+    branch: process.env.VERCEL_GIT_COMMIT_REF || '',
+    hasPassword: !!process.env.ADMIN_PASSWORD,
+    hasSupabase: !!(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY),
     admin,
     storage: storageMode,
     imported: admin ? !!(await loadAdminPlaces()) : undefined,
