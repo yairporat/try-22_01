@@ -1,6 +1,7 @@
 import { requireAdmin } from '../../../../lib/admin';
 import { loadPlaces } from '../../../../lib/places';
 import { savePlace, deletePlace, loadAdminPlaces } from '../../../../lib/content';
+import * as content from '../../../../lib/content';
 import { validatePlaces } from '../../../../lib/adventure';
 import { parseLatLng, resolveShortLink, isUrl } from '../../../../lib/sheet';
 
@@ -45,6 +46,8 @@ export async function POST(request) {
     gallery: (Array.isArray(b.gallery) ? b.gallery : []).map((x) => str(x, 1000)).filter(Boolean).slice(0, 20),
     recommended: !!b.recommended,
     hidden: !!b.hidden,
+    wayStop: !!b.wayStop,
+    roads: str(b.roads, 200),
   };
   const radius = Math.round(Number(b.radius));
   if (radius > 0) place.radius = radius;
@@ -57,7 +60,8 @@ export async function POST(request) {
   const errors = validatePlaces([{ ...place, id: place.id || 'new' }], () => 'המקום');
   if (errors.length) return Response.json({ error: errors.join('\n') }, { status: 400 });
   try {
-    return Response.json({ place: await savePlace(place), located: !!coords });
+    const saved = await savePlace(place);
+    return Response.json({ place: saved, located: !!coords, wayColumnsMissing: content.wayColumnsMissing && (place.wayStop || !!place.roads) });
   } catch (e) {
     console.error('⚠️ שמירת מקום נכשלה:', e.message);
     return Response.json({ error: 'השמירה נכשלה. נסו שוב.' }, { status: 500 });

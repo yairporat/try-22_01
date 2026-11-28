@@ -141,8 +141,61 @@ function AdventurePreview() {
     setTimeout(() => setToast(''), 2600);
   };
 
+  // פרמטרים משותפים לבקשות: מאיפה יוצאים, מתי, ומקומות שלא להציע
+  const commonParams = (q) => {
+    const o = originRef.current;
+    if (o) {
+      q.set('olat', o.lat.toFixed(5));
+      q.set('olng', o.lng.toFixed(5));
+      q.set('olabel', o.label);
+    }
+    if (params.get('depart')) q.set('depart', params.get('depart'));
+    if (params.get('newOnly') === '1') {
+      const seen = Object.keys(loadVisited());
+      if (seen.length) q.set('exclude', seen.join(','));
+    }
+    return q;
+  };
+
+  // טוען מחדש את ההרפתקה עם רשימת תחנות חדשה (אחרי הוספת עצירה בדרך או החלפה)
+  const loadStops = async (ids, msg) => {
+    const q = commonParams(new URLSearchParams({ stops: ids.join(','), title: adventure.title }));
+    if (adventure.region) q.set('region', adventure.region);
+    try {
+      const res = await fetch(`/api/find-adventure?${q.toString()}`);
+      const data = await res.json();
+      if (!res.ok || data.error) return notify(data.error || 'משהו השתבש');
+      setAdventure({ ...data, fit: null, curatedId: null, title: adventure.title, duration: adventure.duration || data.duration, style: adventure.style, region: adventure.region || data.region });
+      setSelected(null);
+      setFav(false);
+      if (msg) notify(msg);
+    } catch {
+      notify('לא הצלחנו לעדכן. בדקו את החיבור ונסו שוב.');
+    }
+  };
+
+  // הוספת עצירה בדרך: לפני התחנה הראשונה (היא על הדרך אליה)
+  const addWayStop = async (w) => {
+    setSwapping('way');
+    await loadStops([w.id, ...adventure.stops.map((s) => s.id)], `נוספה עצירה בדרך: ${w.name}`);
+    setSwapping(null);
+  };
+
+  // החלפת תחנה שבדרך בעצירה אחרת בדרך
+  const swapWithWay = async (i) => {
+    const used = new Set([...adventure.stops.map((s) => s.id), ...triedRef.current]);
+    const next = (adventure.wayStops || []).find((w) => !used.has(w.id));
+    if (!next) return notify('אין עוד עצירות בדרך. אפשר להחליף בתחנה באזור.');
+    triedRef.current = [...new Set([...triedRef.current, adventure.stops[i].id])];
+    setSwapping(i);
+    const ids = adventure.stops.map((s, j) => (j === i ? next.id : s.id));
+    await loadStops(ids, `${adventure.stops[i].name} הוחלף ב${next.name}`);
+    setSwapping(null);
+  };
+
   // החלפת תחנה לפני היציאה: מקבלים מקום אחר באזור שמתאים להרפתקה
-  const swapStop = async (i) => {
+  // onlyRegion: רק מקום בתוך האזור שנבחר (להחלפת תחנה שבדרך)
+  const swapStop = async (i, onlyRegion = false) => {
     setSwapping(i);
     const q = new URLSearchParams({
       replace: String(i),
@@ -155,17 +208,8 @@ function AdventurePreview() {
     });
     triedRef.current = [...new Set([...triedRef.current, adventure.stops[i].id])];
     q.set('tried', triedRef.current.join(','));
-    const o = originRef.current;
-    if (o) {
-      q.set('olat', o.lat.toFixed(5));
-      q.set('olng', o.lng.toFixed(5));
-      q.set('olabel', o.label);
-    }
-    if (params.get('depart')) q.set('depart', params.get('depart'));
-    if (params.get('newOnly') === '1') {
-      const seen = Object.keys(loadVisited());
-      if (seen.length) q.set('exclude', seen.join(','));
-    }
+    if (onlyRegion) q.set('onlyRegion', '1');
+    commonParams(q);
     try {
       const res = await fetch(`/api/find-adventure?${q.toString()}`);
       const data = await res.json();
@@ -337,21 +381,75 @@ function AdventurePreview() {
                 {s.onTheWay ? <span style={st.onWay}>תחנה בדרך</span> : null}
               </small>
             </span>
-            <button
-              type="button"
-              style={st.swap}
-              disabled={swapping !== null}
-              onClick={(e) => {
-                e.stopPropagation();
-                swapStop(i);
-              }}
-              aria-label={`החלפת התחנה ${s.name}`}
-            >
-              {swapping === i ? '...' : '⇄ החלף'}
-            </button>
+            {s.onTheWay ? (
+              <span style={st.swapCol}>
+                <button
+                  type="button"
+                  style={st.swap}
+                  disabled={swapping !== null}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    swapWithWay(i);
+                  }}
+                  aria-label={`החלפת ${s.name} בעצירה אחרת בדרך`}
+                >
+                  {swapping === i ? '...' : '⇄ אחרת בדרך'}
+                </button>
+                <button
+                  type="button"
+                  style={st.swap}
+                  disabled={swapping !== null}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    swapStop(i, true);
+                  }}
+                  aria-label={`החלפת ${s.name} בתחנה באזור`}
+                >
+                  ⇄ באזור
+                </button>
+              </span>
+            ) : (
+              <button
+                type="button"
+                style={st.swap}
+                disabled={swapping !== null}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  swapStop(i);
+                }}
+                aria-label={`החלפת התחנה ${s.name}`}
+              >
+                {swapping === i ? '...' : '⇄ החלף'}
+              </button>
+            )}
           </li>
         ))}
       </ol>
+
+      {(adventure.wayStops || []).filter((w) => !adventure.stops.some((s) => s.id === w.id)).length > 0 && (
+        <section style={st.wayBox} aria-label="אפשר לעצור בדרך">
+          <h2 style={st.wayTitle}>🛣️ אפשר לעצור בדרך</h2>
+          <p style={st.wayText}>מקומות שנמצאים על הדרך אל התחנה הראשונה. אפשר להוסיף עצירה.</p>
+          {adventure.wayStops
+            .filter((w) => !adventure.stops.some((s) => s.id === w.id))
+            .map((w) => (
+              <div key={w.id} style={st.wayItem}>
+                <span style={{ ...st.thumb, ...(w.image ? { backgroundImage: `url(${w.image})` } : null) }} aria-hidden="true">
+                  {w.image ? null : <TypeIcon type={w.type} size={20} />}
+                </span>
+                <span style={{ flex: 1, minWidth: 0, display: 'grid', gap: 2 }}>
+                  <b style={{ fontSize: 15 }}>{w.name}</b>
+                  <small style={{ color: MUTED, fontSize: 12 }}>
+                    {w.type} · {w.region} · בערך {formatMinutes(w.extraMinutes)} נוספות{w.roads ? ` · ${w.roads}` : ''}
+                  </small>
+                </span>
+                <button type="button" style={st.wayAdd} disabled={swapping !== null} onClick={() => addWayStop(w)}>
+                  {swapping === 'way' ? '...' : '+ הוספה'}
+                </button>
+              </div>
+            ))}
+        </section>
+      )}
 
       <Reviews placeIds={adventure.stops.map((s) => s.id)} names={Object.fromEntries(adventure.stops.map((s) => [s.id, s.name]))} />
 
@@ -426,6 +524,12 @@ const st = {
   onWay: { background: '#FFF4E5', color: '#8A5A00', borderRadius: 999, padding: '1px 7px', fontSize: 11, fontWeight: 700, marginInlineStart: 4 },
   stopType: { display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 12, fontWeight: 500, color: '#1557AD', marginTop: 2 },
   swap: { flex: '0 0 auto', border: '1px solid #D5DFEB', background: '#fff', color: '#1E6FD9', borderRadius: 999, padding: '7px 10px', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
+  swapCol: { display: 'grid', gap: 4, flex: '0 0 auto' },
+  wayBox: { display: 'grid', gap: 8, background: '#FFF8EE', border: '1px solid #F6D58B', borderRadius: 18, padding: 12 },
+  wayTitle: { margin: 0, fontSize: 16, fontWeight: 700 },
+  wayText: { margin: 0, fontSize: 13, color: MUTED },
+  wayItem: { display: 'flex', alignItems: 'center', gap: 10, background: '#fff', borderRadius: 14, padding: 6 },
+  wayAdd: { flex: '0 0 auto', border: 0, background: '#F26B1D', color: '#fff', borderRadius: 999, padding: '8px 12px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
   footRow: { width: '100%', maxWidth: 440, display: 'flex', gap: 8, alignItems: 'center' },
   saveBtn: { flex: '0 0 auto', minHeight: 58, border: '2px solid #D5DFEB', background: '#fff', color: '#14213D', borderRadius: 999, padding: '0 14px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
   saveOn: { borderColor: '#22A06B', color: '#17784F', background: '#E6F6EE' },
