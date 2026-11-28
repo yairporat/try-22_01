@@ -5,7 +5,8 @@
 
 import { useRef, useState } from 'react';
 
-export default function SwipeRow({ children, onRemove, onClick, selected, label }) {
+// disabled: בלי החלקה (למשל בהרפתקה מומלצת שאי אפשר לשנות)
+export default function SwipeRow({ children, onRemove, onClick, selected, label, disabled = false }) {
   const [dx, setDx] = useState(0);
   const [leaving, setLeaving] = useState(false);
   const start = useRef(null);
@@ -13,6 +14,7 @@ export default function SwipeRow({ children, onRemove, onClick, selected, label 
   const moved = useRef(false);
 
   const onTouchStart = (e) => {
+    if (disabled) return;
     const t = e.touches[0];
     start.current = { x: t.clientX, y: t.clientY };
     dir.current = null;

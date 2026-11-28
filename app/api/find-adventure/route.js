@@ -71,7 +71,8 @@ export async function GET(request) {
   if (curatedId) {
     const c = (await loadCurated()).find((a) => a.id === curatedId);
     if (!c) return Response.json({ error: 'ההרפתקה הזו לא נמצאה. אולי היא נמחקה מהטבלה.' }, { status: 404 });
-    return withWay(buildCurated(places, c, origin, departAt));
+    // הרפתקה מומלצת – כמו שהמנהל בנה אותה, בלי הצעות לעצירות בדרך
+    return Response.json({ ...buildCurated(places, c, origin, departAt), wayStops: [] });
   }
 
   return withWay(

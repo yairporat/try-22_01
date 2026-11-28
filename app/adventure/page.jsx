@@ -333,6 +333,8 @@ function AdventurePreview() {
   const favHref = adventure.curatedId
     ? `/adventure?curated=${encodeURIComponent(adventure.curatedId)}`
     : `/adventure?stops=${adventure.stops.map((s) => s.id).join(',')}&title=${encodeURIComponent(adventure.title)}`;
+  // הרפתקה מומלצת (שהמנהל בנה): מציגים אותה כמו שהיא – בלי הסרה, החלפה או עצירות בדרך
+  const locked = !!adventure.curatedId || !!params.get('curated');
   const isFav = fav || (typeof window !== 'undefined' && isFavorite(advKey));
 
   return (
@@ -394,10 +396,10 @@ function AdventurePreview() {
 
       <AdventureMap stops={adventure.stops} userPos={userPos} selected={selected} onSelect={setSelected} height={200} />
 
-      <p style={st.swipeHint}>החליקו תחנה הצידה כדי להסיר אותה</p>
+      {!locked && <p style={st.swipeHint}>החליקו תחנה הצידה כדי להסיר אותה</p>}
       <ol style={st.list} aria-label="התחנות לפי הסדר">
         {adventure.stops.map((s, i) => (
-          <SwipeRow key={s.id} selected={selected === i} onClick={() => setSelected(i)} onRemove={() => removeStop(i)} label={s.name}>
+          <SwipeRow key={s.id} selected={selected === i} onClick={() => setSelected(i)} onRemove={() => removeStop(i)} label={s.name} disabled={locked}>
             <span style={st.num}>{i + 1}</span>
             <span
               style={{
@@ -420,7 +422,7 @@ function AdventurePreview() {
                 {s.onTheWay ? <span style={st.onWay}>תחנה בדרך</span> : null}
               </small>
             </span>
-            {!s.onTheWay && (
+            {!locked && !s.onTheWay && (
               <button
                 type="button"
                 style={st.swap}
@@ -434,6 +436,7 @@ function AdventurePreview() {
                 {swapping === i ? '...' : '⇄ החלף'}
               </button>
             )}
+            {!locked && (
             <button
               type="button"
               style={st.del}
@@ -446,11 +449,12 @@ function AdventurePreview() {
             >
               ✕
             </button>
+            )}
           </SwipeRow>
         ))}
       </ol>
 
-      {(adventure.wayStops || []).filter((w) => !adventure.stops.some((s) => s.id === w.id)).length > 0 && (
+      {!locked && (adventure.wayStops || []).filter((w) => !adventure.stops.some((s) => s.id === w.id)).length > 0 && (
         <section style={st.wayBox} aria-label="אפשר לעצור בדרך">
           <h2 style={st.wayTitle}>🛣️ אפשר לעצור בדרך</h2>
           <p style={st.wayText}>מקומות שנמצאים על הדרך להרפתקה ובין התחנות. אפשר להוסיף עצירה, והזמנים יתעדכנו.</p>
@@ -475,7 +479,7 @@ function AdventurePreview() {
         </section>
       )}
 
-      {removed.length > 0 && (
+      {!locked && removed.length > 0 && (
         <section style={st.removedBox} aria-label="תחנות שהסרתי">
           <h2 style={st.wayTitle}>תחנות שהסרתי</h2>
           {removed.map((r) => (
