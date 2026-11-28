@@ -35,9 +35,8 @@ export async function GET(request) {
     let wayStops = [];
     if (origin && stops.length && q.get('noWay') !== '1') {
       try {
-        // התחנה הראשונה שיש לה מיקום מדויק (אליה מחשבים את הדרך)
-        const first = stops.find((s) => typeof s.lat === 'number' && typeof s.lng === 'number');
-        if (first) wayStops = await findWayStops(places, { origin, first, skip: [...stops.map((s) => s.id), ...exclude] });
+        const removed = (q.get('removed') || '').split(',').filter(Boolean);
+        wayStops = await findWayStops(places, { origin, stops, skip: [...stops.map((s) => s.id), ...exclude, ...removed] });
       } catch {}
     }
     return Response.json({ ...adv, stops, wayStops });
@@ -72,7 +71,8 @@ export async function GET(request) {
   if (curatedId) {
     const c = (await loadCurated()).find((a) => a.id === curatedId);
     if (!c) return Response.json({ error: 'ההרפתקה הזו לא נמצאה. אולי היא נמחקה מהטבלה.' }, { status: 404 });
-    return withWay(buildCurated(places, c, origin, departAt));
+    // הרפתקה מומלצת – כמו שהמנהל בנה אותה, בלי הצעות לעצירות בדרך
+    return Response.json({ ...buildCurated(places, c, origin, departAt), wayStops: [] });
   }
 
   return withWay(

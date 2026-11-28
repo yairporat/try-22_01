@@ -62,6 +62,7 @@ function NewAdventure() {
     }
     if (depart) q.set('depart', depart);
     if (newOnly) q.set('newOnly', '1');
+    q.set('t', Date.now().toString(36)); // כל לחיצה – הרפתקה חדשה (רענון של העמוד שומר את אותה אחת)
     router.push(`/adventure?${q.toString()}`);
   }
 
@@ -75,6 +76,9 @@ function NewAdventure() {
   return (
     <div dir="rtl" className="app">
       <main className="screen">
+        <button type="button" className="backPill" onClick={() => (window.history.length > 1 ? router.back() : router.push('/'))} aria-label="חזרה אחורה">
+          → חזרה
+        </button>
         <section className="hero">
           <div className="bird">
             <img src="/phoenix-pin.png" alt="THV" />
@@ -185,6 +189,7 @@ function NewAdventure() {
         .small { font-size: 12px; color: var(--muted); }
         .newOnly { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: #3A4658; cursor: pointer; }
         .newOnly input { width: 20px; height: 20px; accent-color: var(--blue); }
+        .backPill { align-self: flex-start; border: 0; background: #fff; color: var(--ink); border-radius: 999px; padding: 9px 14px; font-size: 15px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 12px rgba(20,33,61,.10); margin-bottom: -6px; }
         .find { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 56px; border: none; border-radius: 999px; font-size: 17px; font-weight: 700; color: #fff; background: var(--orange); cursor: not-allowed; opacity: .45; }
         .find.ready { cursor: pointer; opacity: 1; box-shadow: 0 6px 0 var(--orange-dark); }
         .find.ready:active { transform: translateY(2px); box-shadow: 0 4px 0 var(--orange-dark); }
