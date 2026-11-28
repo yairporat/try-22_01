@@ -254,43 +254,56 @@ function ImageField({ value, onChange, label = 'תמונה' }) {
   );
 }
 
-function GalleryField({ value, onChange }) {
-  const [busy, setBusy] = useState(false);
+// כל התמונות של המקום ביחד: בוחרים כמה תמונות בבת אחת, והראשונה ברשימה היא התמונה הראשית.
+// ⭐ על תמונה – הופכת אותה לראשית. ✕ – מוחקת.
+function PhotosField({ value, onChange }) {
+  const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   const list = value || [];
+  const makeMain = (i) => onChange([list[i], ...list.filter((_, j) => j !== i)]);
   return (
     <div style={st.field}>
-      <span style={st.label}>תמונות נוספות (גלריה)</span>
+      <span style={st.label}>תמונות</span>
+      <small style={st.muted}>אפשר לבחור כמה תמונות בבת אחת. התמונה עם ⭐ היא הראשית – לחצו על ☆ בתמונה אחרת כדי להחליף.</small>
       <div style={st.gallery}>
         {list.map((src, i) => (
-          <span key={src + i} style={{ ...st.galThumb, backgroundImage: `url(${src})` }}>
-            <button type="button" style={st.galX} onClick={() => onChange(list.filter((_, j) => j !== i))} aria-label="הסרה">✕</button>
+          <span key={src + i} style={{ ...st.photo, backgroundImage: `url(${src})`, ...(i === 0 ? st.photoMain : null) }}>
+            <button type="button" style={st.galX} onClick={() => onChange(list.filter((_, j) => j !== i))} aria-label="מחיקת התמונה">✕</button>
+            <button
+              type="button"
+              style={{ ...st.star, ...(i === 0 ? st.starOn : null) }}
+              onClick={() => i !== 0 && makeMain(i)}
+              aria-label={i === 0 ? 'התמונה הראשית' : 'לקבוע כתמונה ראשית'}
+              aria-pressed={i === 0}
+            >
+              {i === 0 ? '⭐ ראשית' : '☆'}
+            </button>
           </span>
         ))}
-        <label style={{ ...st.galAdd, opacity: busy ? 0.5 : 1 }}>
-          {busy ? '...' : '+'}
+        <label style={{ ...st.galAdd, width: 96, height: 96, opacity: busy ? 0.6 : 1, fontSize: busy ? 13 : 26 }}>
+          {busy || '+'}
           <input
             type="file"
             accept="image/*"
             multiple
             hidden
-            disabled={busy}
+            disabled={!!busy}
             onChange={async (e) => {
               const files = [...(e.target.files || [])];
               e.target.value = '';
               if (!files.length) return;
-              setBusy(true);
               setError('');
-              const urls = [];
-              for (const f of files) {
+              let next = [...list];
+              for (let k = 0; k < files.length; k++) {
+                setBusy(`${k + 1}/${files.length}`);
                 try {
-                  urls.push(await uploadImage(f));
+                  next = [...next, await uploadImage(files[k])];
+                  onChange(next);
                 } catch (err) {
                   setError(err.message);
                 }
               }
-              onChange([...list, ...urls]);
-              setBusy(false);
+              setBusy('');
             }}
           />
         </label>
@@ -422,8 +435,10 @@ function PlaceForm({ place, onCancel, onSaved }) {
       {typeof p.spotLat === 'number' && <p style={st.muted}>📍 המקום עצמו: {p.spotLat.toFixed(5)}, {p.spotLng.toFixed(5)}</p>}
       <Field label="על המקום (תיאור)"><textarea value={p.description} onChange={set('description')} rows={5} style={st.input} /></Field>
       <Field label="איך מגיעים"><textarea value={p.directions || ''} onChange={set('directions')} rows={3} style={st.input} /></Field>
-      <ImageField value={p.image} onChange={set('image')} label="תמונה ראשית" />
-      <GalleryField value={p.gallery} onChange={set('gallery')} />
+      <PhotosField
+        value={[p.image, ...(p.gallery || [])].filter(Boolean)}
+        onChange={(list) => setP((x) => ({ ...x, image: list[0] || '', gallery: list.slice(1) }))}
+      />
       <Field label="שעות פתיחה"><input value={p.hours} onChange={set('hours')} style={st.input} /></Field>
       <Field label="חניה"><textarea value={p.parking} onChange={set('parking')} rows={2} style={st.input} /></Field>
       <Field label="חשוב לדעת (בטיחות, עונה, מזג אוויר)"><textarea value={p.tips} onChange={set('tips')} rows={2} style={st.input} /></Field>
@@ -841,6 +856,10 @@ const st = {
   gallery: { display: 'flex', flexWrap: 'wrap', gap: 8 },
   galThumb: { width: 72, height: 72, borderRadius: 12, background: '#EEF1F5 center/cover no-repeat', position: 'relative' },
   galX: { position: 'absolute', top: -6, left: -6, width: 24, height: 24, borderRadius: '50%', border: 0, background: INK, color: '#fff', fontSize: 11, cursor: 'pointer' },
+  photo: { width: 96, height: 96, borderRadius: 14, background: '#EEF1F5 center/cover no-repeat', position: 'relative', border: '3px solid transparent', boxSizing: 'border-box' },
+  photoMain: { borderColor: '#F26B1D' },
+  star: { position: 'absolute', bottom: 4, right: 4, border: 0, borderRadius: 999, background: 'rgba(20,33,61,.75)', color: '#fff', fontSize: 12, fontWeight: 700, padding: '3px 7px', cursor: 'pointer', fontFamily: 'inherit' },
+  starOn: { background: '#F26B1D' },
   galAdd: { width: 72, height: 72, borderRadius: 12, border: '2px dashed #B9C6D6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, color: MUTED, cursor: 'pointer' },
   updown: { display: 'grid', gap: 4 },
   arrow: { width: 30, height: 26, borderRadius: 8, border: `1px solid ${LINE}`, background: '#fff', cursor: 'pointer', fontSize: 10, color: MUTED },
