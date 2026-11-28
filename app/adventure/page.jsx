@@ -17,6 +17,7 @@ import { useSite } from '../../components/Site';
 import Birds from '../../components/Birds';
 import HoldButton from '../../components/HoldButton';
 import { loadVisited } from '../../lib/visited';
+import { recordSurprise, surpriseParams } from '../../lib/surpriseHistory';
 
 export default function AdventurePage() {
   return (
@@ -63,6 +64,10 @@ function AdventurePreview() {
         const seen = Object.keys(loadVisited());
         if (seen.length) q.set('exclude', seen.join(','));
       }
+      // "הפתע אותי": שולחים מה יצא לאחרונה, כדי לקבל משהו אחר
+      if (q.get('mode') === 'surprise' && !q.get('id')) {
+        for (const [k, v] of Object.entries(surpriseParams())) if (v) q.set(k, v);
+      }
       if (origin) {
         q.set('olat', origin.lat.toFixed(5));
         q.set('olng', origin.lng.toFixed(5));
@@ -70,7 +75,12 @@ function AdventurePreview() {
       }
       return fetch(`/api/find-adventure?${q.toString()}`)
         .then((res) => res.json())
-        .then((data) => alive && (data.error ? setError(data.error) : setAdventure(data)));
+        .then((data) => {
+          if (!alive) return;
+          if (data.error) return setError(data.error);
+          if (data.surprise) recordSurprise(data.surprise);
+          setAdventure(data);
+        });
     }).catch(() => alive && setError('לא הצלחנו לטעון את ההרפתקה. בדקו את החיבור ונסו שוב.'));
     return () => {
       alive = false;
@@ -139,7 +149,9 @@ function AdventurePreview() {
       stops: adventure.stops.map((s) => s.id).join(','),
       title: adventure.title,
       duration: adventure.duration || '',
-      level: params.get('level') || adventure.difficulty || '',
+      style: adventure.style || '',
+      level: params.get('level') || '',
+      region: adventure.region || '',
     });
     triedRef.current = [...new Set([...triedRef.current, adventure.stops[i].id])];
     q.set('tried', triedRef.current.join(','));
@@ -161,7 +173,7 @@ function AdventurePreview() {
       else {
         const old = adventure.stops[i].name;
         const added = data.stops.find((s) => !adventure.stops.some((x) => x.id === s.id));
-        setAdventure({ ...data, fit: null, curatedId: null, duration: adventure.duration || data.duration });
+        setAdventure({ ...data, fit: null, curatedId: null, duration: adventure.duration || data.duration, style: adventure.style, region: adventure.region || data.region });
         setSelected(null);
         setFav(false);
         notify(added ? `${old} הוחלף ב${added.name}` : 'התחנה הוחלפה');
@@ -176,14 +188,14 @@ function AdventurePreview() {
   const chooseOther = () => {
     const q = new URLSearchParams({ mode: 'custom' });
     if (params.get('newOnly') !== '1') q.set('newOnly', '0');
-    for (const k of ['region', 'duration', 'level', 'depart']) {
-      const v = params.get(k) || (k === 'region' ? adventure?.region : k === 'duration' ? adventure?.duration : k === 'level' ? adventure?.difficulty : '');
+    for (const k of ['region', 'duration', 'style', 'depart']) {
+      const v = params.get(k) || (k === 'region' ? adventure?.region : k === 'duration' ? adventure?.duration : k === 'style' ? adventure?.style : '');
       if (v) q.set(k, v);
     }
     router.push(`/new?${q.toString()}`);
   };
   const pickSuggestion = (sug) => {
-    const q = new URLSearchParams({ mode: 'custom', region: sug.region, duration: sug.duration, level: sug.level });
+    const q = new URLSearchParams({ mode: 'custom', region: sug.region, duration: sug.duration, style: sug.style || '' });
     if (sug.placeId) q.set('id', sug.placeId);
     if (params.get('depart')) q.set('depart', params.get('depart'));
     if (params.get('newOnly') === '1') q.set('newOnly', '1');
@@ -213,7 +225,7 @@ function AdventurePreview() {
     return (
       <main dir="rtl" style={st.page}>
         <button type="button" style={st.back} onClick={() => router.push('/')}>→ חזרה</button>
-        <p style={st.status}>עוד אין מקומות שמתאימים לבחירה הזו ב{adventure.region}. נסו רמת קושי אחרת או אזור אחר.</p>
+        <p style={st.status}>עוד אין מקומות שמתאימים לבחירה הזו ב{adventure.region}. נסו סגנון אחר או אזור אחר.</p>
         <button type="button" style={st.start} onClick={chooseOther}>בחירה אחרת</button>
         {fitModal}
       </main>
@@ -263,7 +275,7 @@ function AdventurePreview() {
         <div style={st.chips}>
           <span style={st.chip}>⏱ כ-{formatMinutes(total)}</span>
           <span style={st.chip}>{adventure.region}</span>
-          <span style={st.chip}>{adventure.difficulty}</span>
+          <span style={st.chip}>{adventure.style || adventure.difficulty}</span>
           <span style={st.chip}>{adventure.stops.length} תחנות</span>
         </div>
         <p style={{ ...st.lead, ...(moreText ? null : st.clamp) }}>{description}</p>
@@ -315,6 +327,7 @@ function AdventurePreview() {
               ) : null}
               <small style={st.stopType}>
                 <TypeIcon type={s.type} /> {s.type}
+                {s.onTheWay ? <span style={st.onWay}>תחנה בדרך</span> : null}
               </small>
             </span>
             <button
@@ -403,6 +416,7 @@ const st = {
   tag: { display: 'inline-flex', alignItems: 'center', gap: 4, background: '#EAF2FE', color: '#1557AD', borderRadius: 999, padding: '4px 10px', fontSize: 12, fontWeight: 600, flex: '0 0 auto' },
   moreBox: { background: '#fff', borderRadius: 18, padding: '12px 14px', border: `1px solid ${LINE}` },
   stopRate: { display: 'flex', alignItems: 'center', gap: 3, fontSize: 12, fontWeight: 500, color: '#B4470F', marginTop: 2 },
+  onWay: { background: '#FFF4E5', color: '#8A5A00', borderRadius: 999, padding: '1px 7px', fontSize: 11, fontWeight: 700, marginInlineStart: 4 },
   stopType: { display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 12, fontWeight: 500, color: '#1557AD', marginTop: 2 },
   swap: { flex: '0 0 auto', border: '1px solid #D5DFEB', background: '#fff', color: '#1E6FD9', borderRadius: 999, padding: '7px 10px', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
   footRow: { width: '100%', maxWidth: 440, display: 'flex', gap: 8, alignItems: 'center' },
