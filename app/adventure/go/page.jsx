@@ -18,6 +18,8 @@ import { recordVisit } from '../../../lib/visited';
 import { ACHIEVEMENT_REWARD, checkAchievements } from '../../../lib/achievements';
 import { ADVENTURE_REWARD, awardAdventure, loadProfile } from '../../../lib/profile';
 import { useSite } from '../../../components/Site';
+import HoldButton from '../../../components/HoldButton';
+import { recordDoneAdventure } from '../../../lib/history';
 
 const STORAGE_KEY = 'thv-trip';
 const DEFAULT_RADIUS = 400; // מטרים, כשלמקום לא הוגדר רדיוס
@@ -208,6 +210,9 @@ export default function GoPage() {
               })).emailed;
             } catch {}
           }
+          try {
+            recordDoneAdventure(trip);
+          } catch {}
           update({ ...trip, runId, finishSent: true, final: final || null, coins, emailed, achievements });
         }}
         onHome={() => {
@@ -282,11 +287,16 @@ export default function GoPage() {
               {verifiedCount} מתוך {stops.length} תחנות הושלמו{Object.keys(skipped).length ? ` · דילגת על ${stops.filter((x) => skipped[x.id]).length}` : ''}
             </p>
           </div>
-          {!allHandled && (
-            <button type="button" style={st.endBtn} onClick={() => setEnding('confirm')}>
-              סיום מוקדם
+          <div style={{ display: 'grid', gap: 6, flex: '0 0 auto' }}>
+            <button type="button" style={st.pauseBtn} onClick={() => router.push('/')}>
+              ⏸ עצירה
             </button>
-          )}
+            {!allHandled && (
+              <button type="button" style={st.endBtn} onClick={() => setEnding('confirm')}>
+                סיום מוקדם
+              </button>
+            )}
+          </div>
         </header>
         <div style={st.progress} aria-hidden="true">
           {stops.map((s, i) => (
@@ -480,57 +490,6 @@ function CurrentActions({ stop, index, userPos, locStatus, lastFix, admin, onArr
   );
 }
 
-// לחיצה ארוכה לסיום: מחזיקים 1.5 שניות, הכפתור מתמלא ואז מאשר
-function HoldButton({ onConfirm, label = 'החזק כדי לסיים את ההרפתקה', ms = 1500 }) {
-  const [p, setP] = useState(0);
-  const raf = useRef(null);
-  const t0 = useRef(0);
-  const done = useRef(false);
-  function tick(now) {
-    const v = Math.min(1, (now - t0.current) / ms);
-    setP(v);
-    if (v >= 1) {
-      if (!done.current) {
-        done.current = true;
-        try {
-          navigator.vibrate && navigator.vibrate(40);
-        } catch {}
-        onConfirm();
-      }
-      return;
-    }
-    raf.current = requestAnimationFrame(tick);
-  }
-  function start(e) {
-    e.preventDefault();
-    if (done.current) return;
-    t0.current = performance.now();
-    cancelAnimationFrame(raf.current);
-    raf.current = requestAnimationFrame(tick);
-  }
-  function stop() {
-    cancelAnimationFrame(raf.current);
-    if (!done.current) setP(0);
-  }
-  useEffect(() => () => cancelAnimationFrame(raf.current), []);
-  return (
-    <button
-      type="button"
-      style={st.hold}
-      onPointerDown={start}
-      onPointerUp={stop}
-      onPointerLeave={stop}
-      onPointerCancel={stop}
-      onContextMenu={(e) => e.preventDefault()}
-      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && !e.repeat && start(e)}
-      onKeyUp={stop}
-      aria-label={label}
-    >
-      <span style={{ ...st.holdFill, transform: `scaleX(${p})` }} aria-hidden="true" />
-      <span style={{ position: 'relative' }}>{p > 0 && p < 1 ? 'ממשיכים להחזיק...' : label}</span>
-    </button>
-  );
-}
 
 // ---------- דף פרטי תחנה ----------
 function StopDetail({ stop, index, total, isCurrent, done, wasSkipped, userPos, locStatus, lastFix, admin, onBack, onArrived, onSkip }) {
@@ -792,6 +751,7 @@ const st = {
   h1: { margin: '2px 0 0', fontSize: 22, fontWeight: 700, textWrap: 'balance' },
   h2: { margin: 0, fontSize: 16, fontWeight: 700 },
   progressText: { margin: '4px 0 0', fontSize: 14, color: MUTED },
+  pauseBtn: { background: '#EAF2FE', border: 0, color: '#1557AD', borderRadius: 999, padding: '8px 12px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
   endBtn: { flex: '0 0 auto', background: '#fff', border: '1px solid #F4C7C3', color: '#B42318', borderRadius: 999, padding: '8px 12px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
   progress: { display: 'flex', gap: 4 },
   seg: { flex: 1, height: 6, borderRadius: 3 },
@@ -869,7 +829,5 @@ const st = {
   curRow: { display: 'flex', alignItems: 'center', gap: 8, background: '#fff', border: `1px solid ${LINE}`, borderRadius: 14, padding: '8px 10px', cursor: 'pointer', fontFamily: 'inherit', color: INK, fontSize: 15 },
   curDist: { color: MUTED, fontWeight: 400, fontSize: 13 },
   curMore: { color: '#1E6FD9', fontWeight: 600, fontSize: 13 },
-  hold: { ...pill, position: 'relative', overflow: 'hidden', minHeight: 58, background: '#C2520F', color: '#fff', userSelect: 'none', WebkitUserSelect: 'none', touchAction: 'none' },
-  holdFill: { position: 'absolute', inset: 0, background: '#F26B1D', transformOrigin: 'right', transition: 'none' },
   sumItem: { display: 'flex', alignItems: 'center', gap: 10, background: '#fff', border: `1px solid ${LINE}`, borderRadius: 14, padding: '10px 12px', fontSize: 15 },
 };

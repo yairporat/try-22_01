@@ -6,28 +6,19 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { REGIONS } from '../lib/adventure';
 import { restoreProfile, loadWallet, START_COINS } from '../lib/profile';
 import TabBar from '../components/TabBar';
 import { T, useSite } from '../components/Site';
+import Birds from '../components/Birds';
+import { activeTrip } from '../lib/history';
 
-const REGION_ICON = {
-  'גולן': '⛰️',
-  'גליל עליון': '🌲',
-  'גליל תחתון': '🌾',
-  'מרכז': '🏙️',
-  'שפלה': '🌳',
-  'מדבר יהודה': '🏜️',
-  'נגב': '🐪',
-};
 
 export default function Home() {
   const router = useRouter();
   const { t, editMode } = useSite();
   const [curated, setCurated] = useState(null);
   const [ratings, setRatings] = useState({ places: {}, adventures: {} });
-  const [places, setPlaces] = useState([]);
-  const [reviews, setReviews] = useState([]);
+  const [trip, setTrip] = useState(null); // הרפתקה שעצרתי באמצע
   const [userName, setUserName] = useState('');
   const [coins, setCoins] = useState(START_COINS);
 
@@ -40,18 +31,10 @@ export default function Home() {
     setCoins(loadWallet().coins);
     fetch('/api/curated').then((r) => r.json()).then(setCurated).catch(() => setCurated([]));
     fetch('/api/ratings').then((r) => r.json()).then(setRatings).catch(() => {});
-    fetch('/api/places?all=1').then((r) => r.json()).then(setPlaces).catch(() => {});
-    fetch('/api/reviews').then((r) => r.json()).then((d) => setReviews(d.reviews || [])).catch(() => {});
+    setTrip(activeTrip());
   }, [router]);
 
   const covers = [t('img.cover1'), t('img.cover2'), t('img.cover3')].filter(Boolean);
-  const placeById = Object.fromEntries(places.map((p) => [p.id, p]));
-  // המקומות עם הדירוג הממוצע הגבוה ביותר
-  const topPlaces = Object.entries(ratings.places || {})
-    .filter(([id]) => placeById[id])
-    .sort((a, b) => b[1].avg - a[1].avg || b[1].count - a[1].count)
-    .slice(0, 6)
-    .map(([id, r]) => ({ ...placeById[id], ...r }));
   const firstName = userName.trim().split(/\s+/)[0];
 
   return (
@@ -87,13 +70,10 @@ export default function Home() {
                   </span>
                   <span className="cname">{c.name}</span>
                   <span className="cmeta">
-                    {r ? (
-                      <>
-                        <img src="/phoenix-pin.png" alt="" className="pin" />
-                        <b>{r.avg}</b> ({r.count}) ·{' '}
-                      </>
-                    ) : null}
-                    {c.region} · {c.duration}
+                    {r ? <Birds value={r.avg} size={15} /> : null}
+                    <span>
+                      {c.region} · {c.duration}
+                    </span>
                   </span>
                 </button>
               );
@@ -112,58 +92,29 @@ export default function Home() {
 
       <section className="sheet">
         <div className="handle" aria-hidden="true" />
-        <T k="home.regionsTitle" as="h2" className="sheetTitle" />
-        <div className="regions">
-          {REGIONS.map((r) => (
-            <button key={r} type="button" className="region" onClick={() => router.push(`/new?region=${encodeURIComponent(r)}`)}>
-              <span className="ricon" aria-hidden="true">
-                {REGION_ICON[r]}
+        {trip && (
+          <button type="button" className="resume" onClick={() => router.push('/adventure/go')}>
+            <span className="resumeIcon" aria-hidden="true">▶</span>
+            <span className="resumeText">
+              <T k="home.resume" as="b" />
+              <span>
+                {trip.adventure.title} · {trip.adventure.stops.filter((x) => trip.verified?.[x.id]).length}/{trip.adventure.stops.length} תחנות
               </span>
-              <span className="rname">{r}</span>
-            </button>
-          ))}
-        </div>
-
-        {topPlaces.length > 0 && (
-          <>
-            <T k="home.topPlacesTitle" as="h2" className="sectionTitle" />
-            <div className="top-places">
-              {topPlaces.map((p, i) => (
-                <button key={p.id} type="button" className="tp" onClick={() => router.push(`/adventure?id=${encodeURIComponent(p.id)}`)}>
-                  <span className="tpPic" style={{ backgroundImage: `url(${p.image || covers[i % covers.length]})` }} />
-                  <span className="tpName">{p.name}</span>
-                  <span className="tpMeta">
-                    <img src="/phoenix-pin.png" alt="" className="pin" />
-                    <b>{p.avg}</b> ({p.count}) · {p.region}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </>
+            </span>
+            <span className="resumeGo">להמשיך ›</span>
+          </button>
         )}
-
-        {reviews.length > 0 && (
-          <>
-            <T k="adventure.reviewsTitle" as="h2" className="sectionTitle" />
-            <ul className="reviews">
-              {reviews.slice(0, 5).map((r) => (
-                <li key={r.id} className="review">
-                  <div className="rvTop">
-                    <b>{r.name}</b>
-                    <span className="rvPlace">{placeById[r.placeId]?.name || ''}</span>
-                    {r.rating ? (
-                      <span className="rvRate">
-                        <img src="/phoenix-pin.png" alt="" className="pin" />
-                        {r.rating}/5
-                      </span>
-                    ) : null}
-                  </div>
-                  <p className="rvText">{r.text}</p>
-                </li>
-              ))}
-            </ul>
-          </>
-        )}
+        <button type="button" className="bigNew" onClick={() => router.push('/new')}>
+          <span className="bigPlus" aria-hidden="true">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.8" strokeLinecap="round">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+          </span>
+          <span className="bigText">
+            <T k="home.newButton" as="b" className="bigTitle" />
+            <T k="home.newButtonSub" className="bigSub" />
+          </span>
+        </button>
       </section>
 
       <TabBar active="home" />
@@ -195,31 +146,21 @@ export default function Home() {
         .addPic { display: flex !important; align-items: center; justify-content: center; font-size: 48px; color: var(--orange); background: #fff; border: 3px dashed #F7B48A; box-shadow: none; }
         .empty { margin: 0 24px; padding: 24px; background: #fff; border-radius: 22px; color: var(--muted); text-align: center; }
 
-        .sheet { max-width: 520px; margin: 6px auto 0; background: #fff; border-radius: 32px 32px 0 0; padding: 10px 0 130px; box-shadow: 0 -8px 30px rgba(20,33,61,.06); display: flex; flex-direction: column; gap: 14px; min-height: 40dvh; box-sizing: border-box; }
+        .sheet { max-width: 520px; margin: 6px auto 0; background: #fff; border-radius: 32px 32px 0 0; padding: 10px 22px 130px; box-shadow: 0 -8px 30px rgba(20,33,61,.06); display: flex; flex-direction: column; gap: 14px; min-height: 34dvh; box-sizing: border-box; }
         .handle { width: 46px; height: 5px; border-radius: 3px; background: #D5DFEB; align-self: center; }
-        .sheetTitle { margin: 6px 0 0; font-size: 20px; font-weight: 800; text-align: center; }
-        .regions { display: flex; gap: 14px; overflow-x: auto; padding: 4px 24px 8px; scrollbar-width: none; }
-        .regions::-webkit-scrollbar { display: none; }
-        .region { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 8px; background: none; border: 0; cursor: pointer; padding: 0; width: 76px; }
-        .ricon { width: 64px; height: 64px; border-radius: 50%; background: #fff; box-shadow: 0 6px 16px rgba(20,33,61,.10); display: flex; align-items: center; justify-content: center; font-size: 28px; }
-        .rname { font-size: 13px; color: #3A4658; text-align: center; }
-        .sectionTitle { margin: 8px 24px 0; font-size: 17px; font-weight: 700; }
-
-        .top-places { display: flex; gap: 12px; overflow-x: auto; padding: 0 24px 6px; scrollbar-width: none; }
-        .top-places::-webkit-scrollbar { display: none; }
-        .tp { flex: 0 0 150px; background: #fff; border: 1px solid var(--line); border-radius: 20px; padding: 8px; display: flex; flex-direction: column; gap: 6px; text-align: start; cursor: pointer; }
-        .tpPic { height: 90px; border-radius: 14px; background: #DCEAFB center / cover no-repeat; }
-        .tpName { font-size: 14px; font-weight: 600; padding: 0 2px; }
-        .tpMeta { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 3px; padding: 0 2px 2px; }
-
-        .reviews { list-style: none; margin: 0; padding: 0 24px; display: grid; gap: 10px; }
-        .review { background: #F6F9FC; border-radius: 18px; padding: 12px 14px; }
-        .rvTop { display: flex; align-items: center; gap: 8px; font-size: 14px; }
-        .rvPlace { color: var(--muted); font-size: 13px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .rvRate { display: inline-flex; align-items: center; gap: 2px; font-size: 13px; color: #B4470F; font-weight: 600; }
-        .rvText { margin: 6px 0 0; font-size: 14px; line-height: 1.5; color: #3A4658; }
-
-        .card:focus-visible .pic, .region:focus-visible .ricon, .tp:focus-visible, .points:focus-visible { outline: 3px solid var(--orange); outline-offset: 3px; }
+        .bigNew { display: flex; align-items: center; gap: 16px; width: 100%; min-height: 104px; margin-top: 8px; padding: 18px 20px; border: 0; border-radius: 28px; background: linear-gradient(150deg, #F7893F, #F26B1D 60%, #E05A10); color: #fff; text-align: start; cursor: pointer; box-shadow: 0 8px 0 #B8490C, 0 16px 30px rgba(242,107,29,.30); }
+        .bigNew:active { transform: translateY(3px); box-shadow: 0 5px 0 #B8490C, 0 10px 20px rgba(242,107,29,.30); }
+        .bigPlus { width: 60px; height: 60px; border-radius: 50%; background: rgba(255,255,255,.22); display: flex; align-items: center; justify-content: center; flex: 0 0 auto; }
+        .bigText { display: grid; gap: 4px; }
+        .bigTitle { font-size: 22px; font-weight: 800; }
+        .bigSub { font-size: 14px; opacity: .92; }
+        .resume { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 14px; border: 2px solid #BBD4F7; border-radius: 20px; background: #EAF2FE; color: var(--ink); text-align: start; cursor: pointer; }
+        .resumeIcon { width: 38px; height: 38px; border-radius: 50%; background: var(--blue); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 14px; flex: 0 0 auto; }
+        .resumeText { flex: 1; min-width: 0; display: grid; gap: 2px; font-size: 13px; color: var(--muted); }
+        .resumeText b { font-size: 15px; color: var(--ink); }
+        .resumeGo { color: var(--blue); font-weight: 700; font-size: 14px; }
+        .bigNew:focus-visible, .resume:focus-visible { outline: 3px solid var(--blue); outline-offset: 3px; }
+        .card:focus-visible .pic, .points:focus-visible { outline: 3px solid var(--orange); outline-offset: 3px; }
         @media (prefers-reduced-motion: reduce) { .skeleton { animation: none; } }
       `}</style>
     </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import AdventureMap from '../../components/AdventureMap';
 import TypeIcon from '../../components/TypeIcon';
@@ -14,6 +14,9 @@ import { loadProfile } from '../../lib/profile';
 import OriginPicker from '../../components/OriginPicker';
 import Reviews from '../../components/Reviews';
 import { useSite } from '../../components/Site';
+import Birds from '../../components/Birds';
+import HoldButton from '../../components/HoldButton';
+import { loadVisited } from '../../lib/visited';
 
 export default function AdventurePage() {
   return (
@@ -36,6 +39,10 @@ function AdventurePreview() {
   const [error, setError] = useState('');
   const [fitClosed, setFitClosed] = useState(false);
   const [originVersion, setOriginVersion] = useState(0); // משתנה כשבוחרים נקודת יציאה אחרת
+  const [swapping, setSwapping] = useState(null); // מספר התחנה שמחליפים עכשיו
+  const [toast, setToast] = useState('');
+  const originRef = useRef(null);
+  const triedRef = useRef([]); // מקומות שכבר הוחלפו, כדי לא לקבל אותם שוב
   const { t } = useSite();
   const router = useRouter();
   const params = useSearchParams();
@@ -47,9 +54,15 @@ function AdventurePreview() {
     setAdventure(null);
     setError('');
     setFitClosed(false);
+    triedRef.current = [];
     resolveOrigin().then((origin) => {
       if (!alive) return;
+      originRef.current = origin;
       const q = new URLSearchParams(query);
+      if (q.get('newOnly') === '1') {
+        const seen = Object.keys(loadVisited());
+        if (seen.length) q.set('exclude', seen.join(','));
+      }
       if (origin) {
         q.set('olat', origin.lat.toFixed(5));
         q.set('olng', origin.lng.toFixed(5));
@@ -113,9 +126,56 @@ function AdventurePreview() {
     router.push('/adventure/go');
   };
 
+  const notify = (msg) => {
+    setToast(msg);
+    setTimeout(() => setToast(''), 2600);
+  };
+
+  // החלפת תחנה לפני היציאה: מקבלים מקום אחר באזור שמתאים להרפתקה
+  const swapStop = async (i) => {
+    setSwapping(i);
+    const q = new URLSearchParams({
+      replace: String(i),
+      stops: adventure.stops.map((s) => s.id).join(','),
+      title: adventure.title,
+      duration: adventure.duration || '',
+      level: params.get('level') || adventure.difficulty || '',
+    });
+    triedRef.current = [...new Set([...triedRef.current, adventure.stops[i].id])];
+    q.set('tried', triedRef.current.join(','));
+    const o = originRef.current;
+    if (o) {
+      q.set('olat', o.lat.toFixed(5));
+      q.set('olng', o.lng.toFixed(5));
+      q.set('olabel', o.label);
+    }
+    if (params.get('depart')) q.set('depart', params.get('depart'));
+    if (params.get('newOnly') === '1') {
+      const seen = Object.keys(loadVisited());
+      if (seen.length) q.set('exclude', seen.join(','));
+    }
+    try {
+      const res = await fetch(`/api/find-adventure?${q.toString()}`);
+      const data = await res.json();
+      if (!res.ok || data.error) notify(data.error || 'לא מצאנו תחנה אחרת');
+      else {
+        const old = adventure.stops[i].name;
+        const added = data.stops.find((s) => !adventure.stops.some((x) => x.id === s.id));
+        setAdventure({ ...data, fit: null, curatedId: null, duration: adventure.duration || data.duration });
+        setSelected(null);
+        setFav(false);
+        notify(added ? `${old} הוחלף ב${added.name}` : 'התחנה הוחלפה');
+      }
+    } catch {
+      notify('לא הצלחנו להחליף. בדקו את החיבור ונסו שוב.');
+    }
+    setSwapping(null);
+  };
+
   // חזרה למסך "הרפתקאה חדשה" עם אותן בחירות, כדי לשנות אותן
   const chooseOther = () => {
     const q = new URLSearchParams({ mode: 'custom' });
+    if (params.get('newOnly') !== '1') q.set('newOnly', '0');
     for (const k of ['region', 'duration', 'level', 'depart']) {
       const v = params.get(k) || (k === 'region' ? adventure?.region : k === 'duration' ? adventure?.duration : k === 'level' ? adventure?.difficulty : '');
       if (v) q.set(k, v);
@@ -126,6 +186,7 @@ function AdventurePreview() {
     const q = new URLSearchParams({ mode: 'custom', region: sug.region, duration: sug.duration, level: sug.level });
     if (sug.placeId) q.set('id', sug.placeId);
     if (params.get('depart')) q.set('depart', params.get('depart'));
+    if (params.get('newOnly') === '1') q.set('newOnly', '1');
     router.push(`/adventure?${q.toString()}`);
   };
   const fitModal =
@@ -197,17 +258,7 @@ function AdventurePreview() {
       <header style={st.head}>
         <div style={st.titleRow}>
           <h1 style={st.title}>{adventure.title}</h1>
-          <span style={st.rate} aria-label={rating ? `דירוג ממוצע ${rating.avg} מתוך 5, ${rating.count} מדרגים` : 'עוד אין דירוגים'}>
-            <img src="/phoenix-pin.png" alt="" style={{ width: 18, height: 18, objectFit: 'contain' }} />
-            {rating ? (
-              <>
-                <b>{rating.avg}</b>
-                <small>({rating.count})</small>
-              </>
-            ) : (
-              <small>חדש</small>
-            )}
-          </span>
+          <span style={st.rate}>{rating ? <Birds value={rating.avg} size={18} /> : <small>חדש</small>}</span>
         </div>
         <div style={st.chips}>
           <span style={st.chip}>⏱ כ-{formatMinutes(total)}</span>
@@ -259,15 +310,25 @@ function AdventurePreview() {
               {s.name}
               {ratings?.places?.[s.id] ? (
                 <small style={st.stopRate}>
-                  <img src="/phoenix-pin.png" alt="" style={{ width: 14, height: 14, objectFit: 'contain' }} />
-                  {ratings.places[s.id].avg} ({ratings.places[s.id].count})
+                  <Birds value={ratings.places[s.id].avg} size={13} />
                 </small>
               ) : null}
+              <small style={st.stopType}>
+                <TypeIcon type={s.type} /> {s.type}
+              </small>
             </span>
-            <span style={st.tag}>
-              <TypeIcon type={s.type} />
-              {s.type}
-            </span>
+            <button
+              type="button"
+              style={st.swap}
+              disabled={swapping !== null}
+              onClick={(e) => {
+                e.stopPropagation();
+                swapStop(i);
+              }}
+              aria-label={`החלפת התחנה ${s.name}`}
+            >
+              {swapping === i ? '...' : '⇄ החלף'}
+            </button>
           </li>
         ))}
       </ol>
@@ -284,10 +345,28 @@ function AdventurePreview() {
 
       {gallery !== null && <GalleryModal images={images} start={gallery} onClose={() => setGallery(null)} />}
 
+      {toast && (
+        <div style={st.toast} role="status">
+          {toast}
+        </div>
+      )}
+
       <footer style={st.footer}>
-        <button type="button" style={st.start} onClick={handleStart} disabled={starting}>
-          {starting ? 'יוצאים...' : t('adventure.start')}
-        </button>
+        <div style={st.footRow}>
+          <button
+            type="button"
+            style={{ ...st.saveBtn, ...(isFav ? st.saveOn : null) }}
+            aria-pressed={isFav}
+            onClick={() => {
+              const on = toggleFavorite({ key: advKey, title: adventure.title, href: favHref, region: adventure.region, stops: adventure.stops.length }) || false;
+              setFav(on);
+              notify(on ? 'נשמר! ההרפתקה מחכה לך במועדפים' : 'הוסר מהמועדפים');
+            }}
+          >
+            {isFav ? '✓ נשמר' : `🔖 ${t('adventure.save')}`}
+          </button>
+          <HoldButton onConfirm={handleStart} disabled={starting} label={starting ? 'יוצאים...' : t('adventure.hold')} holdingLabel="ממשיכים להחזיק..." style={{ flex: 1 }} />
+        </div>
       </footer>
     </main>
   );
@@ -324,6 +403,12 @@ const st = {
   tag: { display: 'inline-flex', alignItems: 'center', gap: 4, background: '#EAF2FE', color: '#1557AD', borderRadius: 999, padding: '4px 10px', fontSize: 12, fontWeight: 600, flex: '0 0 auto' },
   moreBox: { background: '#fff', borderRadius: 18, padding: '12px 14px', border: `1px solid ${LINE}` },
   stopRate: { display: 'flex', alignItems: 'center', gap: 3, fontSize: 12, fontWeight: 500, color: '#B4470F', marginTop: 2 },
+  stopType: { display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 12, fontWeight: 500, color: '#1557AD', marginTop: 2 },
+  swap: { flex: '0 0 auto', border: '1px solid #D5DFEB', background: '#fff', color: '#1E6FD9', borderRadius: 999, padding: '7px 10px', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
+  footRow: { width: '100%', maxWidth: 440, display: 'flex', gap: 8, alignItems: 'center' },
+  saveBtn: { flex: '0 0 auto', minHeight: 58, border: '2px solid #D5DFEB', background: '#fff', color: '#14213D', borderRadius: 999, padding: '0 14px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
+  saveOn: { borderColor: '#22A06B', color: '#17784F', background: '#E6F6EE' },
+  toast: { position: 'fixed', bottom: 100, left: '50%', transform: 'translateX(-50%)', background: '#14213D', color: '#fff', borderRadius: 999, padding: '10px 18px', fontSize: 14, zIndex: 1500, boxShadow: '0 8px 20px rgba(0,0,0,.2)', maxWidth: '90vw', textAlign: 'center' },
   moreSum: { cursor: 'pointer', fontWeight: 600, fontSize: 15 },
   hint: { margin: 0, fontSize: 13, color: MUTED },
   footer: { position: 'fixed', bottom: 0, left: 0, right: 0, padding: '12px 20px calc(12px + env(safe-area-inset-bottom, 0px))', background: 'linear-gradient(to top, #F6F9FC 75%, rgba(246,249,252,0))', display: 'flex', justifyContent: 'center', zIndex: 1000 },

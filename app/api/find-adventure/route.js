@@ -1,4 +1,4 @@
-import { findAdventure, validatePlaces, buildCurated } from '../../../lib/adventure';
+import { findAdventure, validatePlaces, buildCurated, replaceStop } from '../../../lib/adventure';
 import { loadPlaces, loadCurated } from '../../../lib/places';
 import { departureDate } from '../../../lib/traffic';
 
@@ -26,6 +26,20 @@ export async function GET(request) {
       : null;
   // שעת היציאה (?depart=08:30), לפיה מחושבים הפקקים. בלי – יוצאים עכשיו
   const departAt = departureDate(q.get('depart')).toISOString();
+  // מקומות שכבר ביקרתי בהם (כשמסומן "רק מקומות חדשים")
+  const exclude = (q.get('exclude') || '').split(',').map((x) => x.trim()).filter(Boolean).slice(0, 500);
+
+  // החלפת תחנה: ?stops=a,b,c&replace=1&title=...&level=&duration=&tried=x,y
+  const replaceAt = q.get('replace');
+  if (replaceAt !== null && q.get('stops')) {
+    const ids = q.get('stops').split(',').filter((id) => places.some((p) => p.id === id)).slice(0, 10);
+    const tried = (q.get('tried') || '').split(',').filter(Boolean).slice(0, 50);
+    const next = replaceStop(places, { stopIds: ids, index: Number(replaceAt), level: q.get('level'), duration: q.get('duration'), origin, exclude, tried });
+    if (!next) return Response.json({ error: 'לא מצאנו מקום אחר שמתאים להרפתקה הזו באזור.' }, { status: 404 });
+    const a = buildCurated(places, { id: `custom-${next.join('-')}`, name: q.get('title') || 'ההרפתקה שלי', stops: next }, origin, departAt);
+    return Response.json({ ...a, curatedId: null });
+  }
+
   // הרפתקה שמורה (מהמועדפים): אותן תחנות באותו סדר
   const stopsParam = q.get('stops');
   if (stopsParam) {
@@ -51,6 +65,7 @@ export async function GET(request) {
       placeId: q.get('id'),
       origin,
       departAt,
+      exclude,
     }),
   );
 }

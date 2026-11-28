@@ -4,7 +4,6 @@
 // שלוש אפשרויות: מעבר להמלצה שכן מתאימה, בחירה אחרת, או יציאה ממקום אחר.
 
 import { useEffect, useState } from 'react';
-import { formatMinutes } from '../lib/travel';
 import { OriginSheet } from './OriginPicker';
 import { loadOriginChoice } from '../lib/origin';
 import { T, useSite } from './Site';
@@ -27,26 +26,21 @@ export default function FitNotice({ adventure, onPick, onChooseOther, onOriginCh
     !s ? null : s.kind === 'region' ? `הרפתקה ב${s.region}` : s.kind === 'duration' ? `${s.duration} ב${adventure.region}` : `${s.duration} ב${s.region}`;
 
   return (
-    <div style={st.overlay} role="dialog" aria-modal="true" aria-labelledby="nofit-title" dir="rtl">
+    <div style={st.overlay} role="dialog" aria-modal="true" aria-label={t('nofit.title')} dir="rtl">
       <div style={st.box}>
         <img src="/phoenix-pin.png" alt="" style={st.bird} />
         <T k="nofit.title" as="h2" style={st.title} />
-        <p style={st.text} id="nofit-title">
-          {empty
-            ? `אין עדיין מקומות ב${adventure.region} שמתאימים לרמת הקושי שבחרת.`
-            : `ההרפתקה ב${adventure.region} לוקחת כ-${formatMinutes(fit.totalMinutes)} כולל נסיעות ועומסי תנועה, ובחרת ${adventure.duration} (עד ${formatMinutes(fit.limitMinutes)}).`}
-        </p>
 
         {s ? (
           <div style={st.sugg}>
             <T k="nofit.suggestionLabel" as="p" style={st.suggLabel} />
             <p style={st.suggTitle}>{s.title}</p>
             <p style={st.suggMeta}>
-              {what} · {s.stops} {s.stops === 1 ? 'תחנה' : 'תחנות'} · כ-{formatMinutes(s.totalMinutes)} כולל נסיעות
+              {what} · {s.stops} {s.stops === 1 ? 'תחנה' : 'תחנות'}
             </p>
           </div>
         ) : (
-          <p style={st.text}>לא מצאנו חלופה שנכנסת בזמן הזה מנקודת היציאה שלך.</p>
+          <p style={st.text}>אין כרגע המלצה אחרת. אפשר לבחור אחרת או לצאת ממקום אחר.</p>
         )}
 
         <div style={st.actions}>

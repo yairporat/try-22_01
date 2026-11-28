@@ -1,12 +1,16 @@
 'use client';
 
-// עמוד "המפה שלי": כל המקומות שהגעתי אליהם בהרפתקאות, עם פניקס על המפה ורשימה.
+// עמוד "המפה שלי": המפה מופיעה תמיד, עם פניקס על כל מקום שהגעתי אליו.
+// מתחת: רשימת המקומות שביקרתי בהם (לחיצה פותחת את כל הפרטים והניווט) והרפתקאות שסיימתי.
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import VisitedMap from '../../components/VisitedMap';
 import TabBar from '../../components/TabBar';
 import { formatDate, lastVisit, loadVisited, visitedList } from '../../lib/visited';
+import { loadDoneAdventures } from '../../lib/history';
+import { loadWallet } from '../../lib/profile';
+import PlaceSheet from '../../components/PlaceSheet';
 
 export default function MapPage() {
   const router = useRouter();
@@ -14,9 +18,19 @@ export default function MapPage() {
   const [visited, setVisited] = useState(null);
   const [total, setTotal] = useState(null);
   const [selected, setSelected] = useState(null);
+  const [open, setOpen] = useState(null); // המקום שהפרטים שלו פתוחים
+  const [done, setDone] = useState([]);
+  const [ratings, setRatings] = useState({ places: {} });
 
   useEffect(() => {
     setVisited(visitedList(loadVisited()));
+    // הרפתקאות שסיימתי; הרפתקאות ישנות (לפני שהתחלנו לשמור) – מתוך היסטוריית המטבעות
+    const list = loadDoneAdventures();
+    const old = (loadWallet().history || [])
+      .filter((h) => h.tripId && !list.some((a) => a.key === String(h.tripId)))
+      .map((h) => ({ key: String(h.tripId), title: h.reason, date: h.date, status: 'completed', stops: [] }));
+    setDone([...list, ...old].sort((a, b) => b.date - a.date));
+    fetch('/api/ratings').then((r) => r.json()).then(setRatings).catch(() => {});
     fetch('/api/places?all=1')
       .then((r) => r.json())
       .then((all) => setTotal(all.length))
@@ -36,18 +50,7 @@ export default function MapPage() {
           <h1 style={st.title}>המקומות שהייתי בהם</h1>
         </header>
 
-        {visited.length === 0 ? (
-          <section style={st.empty}>
-            <img src="/phoenix.webp" alt="" style={st.emptyBird} />
-            <h2 style={st.emptyTitle}>המפה עוד ריקה</h2>
-            <p style={st.emptyText}>
-              בכל פעם שתגיעו לתחנה בהרפתקה, יופיע עליה פניקס כאן במפה.
-            </p>
-            <button type="button" style={st.go} onClick={() => router.push('/')}>
-              יוצאים להרפתקה
-            </button>
-          </section>
-        ) : (
+        {visited.length > 0 && (
           <>
             <div style={st.stats}>
               <div style={st.stat}>
@@ -62,8 +65,8 @@ export default function MapPage() {
                 <span style={st.statLabel}>אזורים</span>
               </div>
               <div style={st.stat}>
-                <b style={st.statBig}>{visits}</b>
-                <span style={st.statLabel}>ביקורים</span>
+                <b style={st.statBig}>{done.length}</b>
+                <span style={st.statLabel}>הרפתקאות</span>
               </div>
             </div>
             {total ? (
@@ -71,40 +74,88 @@ export default function MapPage() {
                 <span style={{ ...st.barFill, width: `${Math.min(100, (visited.length / total) * 100)}%` }} />
               </div>
             ) : null}
-
-            <VisitedMap ref={mapRef} places={visited} onSelect={setSelected} />
-
-            <h2 style={st.listTitle}>כל המקומות ({visited.length})</h2>
-            <ul style={st.list}>
-              {visited.map((p) => (
-                <li key={p.id}>
-                  <button
-                    type="button"
-                    style={{ ...st.item, ...(selected === p.id ? st.itemOn : null) }}
-                    onClick={() => {
-                      setSelected(p.id);
-                      mapRef.current?.focus(p.id);
-                      window.scrollTo({ top: 0, behavior: 'smooth' });
-                    }}
-                  >
-                    <img src="/phoenix.webp" alt="" style={st.itemBird} />
-                    <span style={st.itemText}>
-                      <b style={st.itemName}>{p.name}</b>
-                      <span style={st.itemMeta}>
-                        {p.region} · {p.type} · {formatDate(lastVisit(p))}
-                      </span>
-                      <span style={st.itemMeta}>
-                        {p.visits.length > 1 ? `${p.visits.length} ביקורים · ` : ''}
-                        {p.visits[p.visits.length - 1].adventure}
-                      </span>
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
           </>
         )}
+
+        <VisitedMap
+          ref={mapRef}
+          places={visited}
+          onSelect={(id) => {
+            setSelected(id);
+            setOpen(id);
+          }}
+        />
+
+        <h2 style={st.listTitle}>✓ מקומות שביקרתי בהם ({visited.length})</h2>
+        {visited.length === 0 ? (
+          <section style={st.empty}>
+            <p style={st.emptyText}>עוד אין. בכל פעם שתגיעו לתחנה בהרפתקה, יופיע עליה פניקס במפה והיא תיכנס לרשימה הזו.</p>
+            <button type="button" style={st.go} onClick={() => router.push('/new')}>
+              יוצאים להרפתקה
+            </button>
+          </section>
+        ) : (
+          <ul style={st.list}>
+            {visited.map((p) => (
+              <li key={p.id}>
+                <button
+                  type="button"
+                  style={{ ...st.item, ...(selected === p.id ? st.itemOn : null) }}
+                  onClick={() => {
+                    setSelected(p.id);
+                    mapRef.current?.focus(p.id);
+                    setOpen(p.id);
+                  }}
+                >
+                  <span style={st.check} aria-hidden="true">✓</span>
+                  <img src="/phoenix-pin.png" alt="" style={st.itemBird} />
+                  <span style={st.itemText}>
+                    <b style={st.itemName}>{p.name}</b>
+                    <span style={st.itemMeta}>
+                      {p.region} · {p.type} · {formatDate(lastVisit(p))}
+                      {p.visits.length > 1 ? ` · ${p.visits.length} ביקורים` : ''}
+                    </span>
+                  </span>
+                  <span style={st.chev} aria-hidden="true">‹</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <h2 style={st.listTitle}>🏁 ההרפתקאות שלי ({done.length})</h2>
+        {done.length === 0 ? (
+          <p style={st.emptyText}>עוד לא סיימתם הרפתקה.</p>
+        ) : (
+          <ul style={st.list}>
+            {done.map((a) => (
+              <li key={a.key} style={st.advItem}>
+                <span style={{ ...st.advIcon, background: a.status === 'completed' ? '#22A06B' : '#B9C3CF' }} aria-hidden="true">
+                  {a.status === 'completed' ? '🏆' : '🏁'}
+                </span>
+                <span style={st.itemText}>
+                  <b style={st.itemName}>{a.title}</b>
+                  <span style={st.itemMeta}>
+                    {formatDate(a.date)}
+                    {a.stops?.length ? ` · ${a.stops.filter((x) => x.done).length}/${a.stops.length} תחנות` : ''}
+                    {a.status === 'completed' ? ' · הושלמה' : ''}
+                  </span>
+                  {a.stops?.length ? <span style={st.itemMeta}>{a.stops.map((x) => x.name).join(' ← ')}</span> : null}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
       </main>
+
+      {open && (
+        <PlaceSheet
+          id={open}
+          visit={visited.find((p) => p.id === open)}
+          rating={ratings.places?.[open]}
+          onClose={() => setOpen(null)}
+        />
+      )}
 
       <TabBar active="map" />
     </div>
@@ -129,11 +180,15 @@ const st = {
   statLabel: { fontSize: '0.8rem', color: MUTED },
   bar: { height: 10, borderRadius: 5, background: LINE, overflow: 'hidden' },
   barFill: { display: 'block', height: '100%', borderRadius: 5, background: 'linear-gradient(90deg, #ee6a1f, #f6b93b)', marginInlineStart: 0 },
-  listTitle: { margin: '6px 0 0', fontSize: '0.85rem', fontWeight: 700, color: MUTED },
+  listTitle: { margin: '8px 0 0', fontSize: '1.05rem', fontWeight: 800, color: INK },
   list: { listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 10 },
   item: { width: '100%', display: 'flex', alignItems: 'center', gap: 12, textAlign: 'start', background: '#fff', border: `2px solid ${LINE}`, borderBottomWidth: 5, borderRadius: 18, padding: '10px 12px', cursor: 'pointer', font: 'inherit', color: 'inherit' },
   itemOn: { borderColor: BLUE },
-  itemBird: { width: 44, height: 44, objectFit: 'contain', flex: '0 0 auto' },
+  itemBird: { width: 40, height: 40, objectFit: 'contain', flex: '0 0 auto' },
+  check: { width: 24, height: 24, borderRadius: '50%', background: '#22A06B', color: '#fff', fontWeight: 800, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: '0 0 auto' },
+  chev: { marginInlineStart: 'auto', color: '#9AA8B8', fontSize: 20 },
+  advItem: { display: 'flex', alignItems: 'center', gap: 12, background: '#fff', border: `2px solid ${LINE}`, borderBottomWidth: 5, borderRadius: 18, padding: '10px 12px' },
+  advIcon: { width: 40, height: 40, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flex: '0 0 auto' },
   itemText: { display: 'grid', gap: 2, minWidth: 0 },
   itemName: { fontSize: '1.05rem', fontWeight: 800 },
   itemMeta: { fontSize: '0.82rem', color: MUTED },
