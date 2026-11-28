@@ -301,7 +301,7 @@ function GalleryField({ value, onChange }) {
 }
 
 // ---------------- מקומות ----------------
-const EMPTY_PLACE = { name: '', region: REGIONS[0], type: TYPES[0], difficulty: LEVELS[0], visitMinutes: 60, description: '', location: '', image: '', gallery: [], hours: '', parking: '', tips: '', equipment: '', radius: '', recommended: false, hidden: false };
+const EMPTY_PLACE = { name: '', region: REGIONS[0], type: TYPES[0], difficulty: LEVELS[0], visitMinutes: 60, description: '', location: '', image: '', gallery: [], hours: '', parking: '', tips: '', equipment: '', radius: '', recommended: false, hidden: false, wayStop: false, roads: '' };
 
 function PlacesTab({ imported, notify }) {
   const [places, setPlaces] = useState(null);
@@ -349,6 +349,7 @@ function PlacesTab({ imported, notify }) {
                 </span>
                 {p.hidden && <span style={st.badgeGray}>מוסתר</span>}
                 {p.recommended && <span style={st.badge}>מומלץ</span>}
+                {p.wayStop && <span style={st.badge}>🛣️ בדרך</span>}
                 {typeof p.lat !== 'number' && <span style={st.badgeWarn} title="אין מיקום מדויק">אין מיקום</span>}
               </button>
             </li>
@@ -372,7 +373,13 @@ function PlaceForm({ place, onCancel, onSaved }) {
     setError('');
     try {
       const r = await api('/api/admin/places', { method: 'POST', body: JSON.stringify(p) });
-      onSaved(r.located ? 'המקום נשמר' : 'המקום נשמר, אבל לא זיהינו את המיקום מהקישור. הדביקו קישור שיתוף מגוגל מפס.');
+      onSaved(
+        r.wayColumnsMissing
+          ? 'המקום נשמר, אבל "עצירה בדרך" והכבישים לא נשמרו: צריך להריץ ב-Supabase את supabase/migrations/004_way_stops.sql'
+          : r.located
+            ? 'המקום נשמר'
+            : 'המקום נשמר, אבל לא זיהינו את המיקום מהקישור. הדביקו קישור שיתוף מגוגל מפס.',
+      );
     } catch (e) {
       setError(e.message);
       setBusy(false);
@@ -416,6 +423,15 @@ function PlaceForm({ place, onCancel, onSaved }) {
       <Field label="חניה"><textarea value={p.parking} onChange={set('parking')} rows={2} style={st.input} /></Field>
       <Field label="חשוב לדעת (בטיחות, עונה, מזג אוויר)"><textarea value={p.tips} onChange={set('tips')} rows={2} style={st.input} /></Field>
       <Field label="ציוד מומלץ"><input value={p.equipment} onChange={set('equipment')} style={st.input} /></Field>
+      <div style={st.wayBox}>
+        <label style={st.check}><input type="checkbox" checked={!!p.wayStop} onChange={set('wayStop')} /> 🛣️ מתאים לעצירה בדרך</label>
+        <small style={st.muted}>האפליקציה מציעה לעצור כאן כשהנסיעה להרפתקה עוברת בסביבה, גם אם המקום לא באזור שנבחר. גם בלי הסימון היא מזהה מקומות שממש על הדרך.</small>
+        {p.wayStop && (
+          <Field label="על אילו כבישים (למשל: כביש 6, 90)">
+            <input value={p.roads || ''} onChange={set('roads')} style={st.input} placeholder="כביש 6, 90" />
+          </Field>
+        )}
+      </div>
       <label style={st.check}><input type="checkbox" checked={!!p.recommended} onChange={set('recommended')} /> מומלץ</label>
       <label style={st.check}><input type="checkbox" checked={!!p.hidden} onChange={set('hidden')} /> להסתיר מהמשתמשים (נשמר, אבל לא מופיע בהרפתקאות)</label>
       {error && <p style={st.err}>{error}</p>}
@@ -802,6 +818,7 @@ const st = {
   label: { fontSize: 13, fontWeight: 700, color: '#3A4658' },
   grid2: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 },
   grid3: { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 },
+  wayBox: { display: 'grid', gap: 6, background: '#F6F9FC', borderRadius: 14, padding: 10, border: `1px solid ${LINE}` },
   check: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 14 },
   formActions: { display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 8 },
   primary: { ...btn, background: '#F26B1D', color: '#fff', padding: '13px 0', fontSize: 16, boxShadow: '0 4px 0 #C2520F' },
