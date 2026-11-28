@@ -72,6 +72,7 @@ export async function GET(request) {
       recentRegions: list('recentRegions', 5),
       recentAnchors: list('recentAnchors', 20),
       recentCombos: list('recentCombos', 20),
+      lastCount: q.get('lastCount'),
       origin,
       departAt,
       exclude,
