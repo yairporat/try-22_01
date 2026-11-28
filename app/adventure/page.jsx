@@ -18,6 +18,9 @@ import Birds from '../../components/Birds';
 import HoldButton from '../../components/HoldButton';
 import { loadVisited } from '../../lib/visited';
 import { recordSurprise, surpriseParams } from '../../lib/surpriseHistory';
+import { bestInsertAt } from '../../lib/waystops';
+import SwipeRow from '../../components/SwipeRow';
+import { loadCurrent, saveCurrent } from '../../lib/currentAdventure';
 
 export default function AdventurePage() {
   return (
@@ -37,6 +40,7 @@ function AdventurePreview() {
   const [userPos, setUserPos] = useState(null);
   const [locStatus, setLocStatus] = useState('pending');
   const [adventure, setAdventure] = useState(null);
+  const [removed, setRemoved] = useState([]); // תחנות שהסרתי (אפשר להחזיר)
   const [error, setError] = useState('');
   const [fitClosed, setFitClosed] = useState(false);
   const [originVersion, setOriginVersion] = useState(0); // משתנה כשבוחרים נקודת יציאה אחרת
@@ -52,10 +56,21 @@ function AdventurePreview() {
   // קודם מבררים מאיפה יוצאים (המיקום שלי או עיר), ואז שולחים את הבחירות ומקבלים הרפתקה מתאימה
   useEffect(() => {
     let alive = true;
-    setAdventure(null);
     setError('');
     setFitClosed(false);
     triedRef.current = [];
+    // טעינה מחדש של אותו עמוד – אותה הרפתקה בדיוק, עם השינויים שעשיתי (לא בונים חדשה)
+    const saved = originVersion === 0 ? loadCurrent(query) : null;
+    if (saved) {
+      originRef.current = saved.origin || null;
+      setAdventure(saved.adventure);
+      setRemoved(saved.removed || []);
+      return () => {
+        alive = false;
+      };
+    }
+    setAdventure(null);
+    setRemoved([]);
     resolveOrigin().then((origin) => {
       if (!alive) return;
       originRef.current = origin;
@@ -86,6 +101,11 @@ function AdventurePreview() {
       alive = false;
     };
   }, [query, originVersion]);
+
+  // שומרים את ההרפתקה הנוכחית (כולל שינויים), כדי שטעינה מחדש לא תחליף אותה
+  useEffect(() => {
+    if (adventure) saveCurrent(query, { adventure, removed, origin: originRef.current });
+  }, [adventure, removed, query]);
 
   // המיקום של המשתמש (הדפדפן מבקש הרשאה בפעם הראשונה)
   useEffect(() => {
@@ -136,6 +156,9 @@ function AdventurePreview() {
     router.push('/adventure/go');
   };
 
+  // חזרה אחורה (או למסך הבית, אם נכנסו ישר לעמוד)
+  const goBack = () => (window.history.length > 1 ? router.back() : router.push('/'));
+
   const notify = (msg) => {
     setToast(msg);
     setTimeout(() => setToast(''), 2600);
@@ -158,14 +181,19 @@ function AdventurePreview() {
   };
 
   // טוען מחדש את ההרפתקה עם רשימת תחנות חדשה (אחרי הוספת עצירה בדרך או החלפה)
-  const loadStops = async (ids, msg) => {
+  const loadStops = async (ids, msg, removedNext = removed) => {
     const q = commonParams(new URLSearchParams({ stops: ids.join(','), title: adventure.title }));
     if (adventure.region) q.set('region', adventure.region);
+    if (removedNext?.length) q.set('removed', removedNext.map((x) => x.id).join(','));
     try {
       const res = await fetch(`/api/find-adventure?${q.toString()}`);
       const data = await res.json();
       if (!res.ok || data.error) return notify(data.error || 'משהו השתבש');
-      setAdventure({ ...data, fit: null, curatedId: null, title: adventure.title, duration: adventure.duration || data.duration, style: adventure.style, region: adventure.region || data.region });
+      // תחנות שהיו "בדרך" נשארות מסומנות כך
+      const wayIds = new Set([...(adventure.wayStops || []).map((w) => w.id), ...adventure.stops.filter((x) => x.onTheWay).map((x) => x.id)]);
+      const stops = data.stops.map((x) => ({ ...x, onTheWay: x.onTheWay || wayIds.has(x.id) }));
+      setAdventure({ ...data, stops, fit: null, curatedId: null, title: adventure.title, duration: adventure.duration || data.duration, style: adventure.style, region: adventure.region || data.region });
+      setRemoved(removedNext);
       setSelected(null);
       setFav(false);
       if (msg) notify(msg);
@@ -174,27 +202,36 @@ function AdventurePreview() {
     }
   };
 
-  // הוספת עצירה בדרך: לפני התחנה הראשונה (היא על הדרך אליה)
+  // הוספת עצירה בדרך: במקום הנכון במסלול (לפני התחנה שהיא בדרך אליה)
   const addWayStop = async (w) => {
     setSwapping('way');
-    await loadStops([w.id, ...adventure.stops.map((s) => s.id)], `נוספה עצירה בדרך: ${w.name}`);
+    const ids = adventure.stops.map((x) => x.id);
+    const at = Math.max(0, Math.min(ids.length, w.insertAt ?? 0));
+    ids.splice(at, 0, w.id);
+    await loadStops(ids, `נוספה עצירה בדרך: ${w.name}`);
     setSwapping(null);
   };
 
-  // החלפת תחנה שבדרך בעצירה אחרת בדרך
-  const swapWithWay = async (i) => {
-    const used = new Set([...adventure.stops.map((s) => s.id), ...triedRef.current]);
-    const next = (adventure.wayStops || []).find((w) => !used.has(w.id));
-    if (!next) return notify('אין עוד עצירות בדרך. אפשר להחליף בתחנה באזור.');
-    triedRef.current = [...new Set([...triedRef.current, adventure.stops[i].id])];
+  // הסרת תחנה (בהחלקה הצידה): נשמרת בתחתית העמוד, ואפשר להחזיר אותה
+  const removeStop = async (i) => {
+    if (adventure.stops.length <= 1) return notify('צריך לפחות תחנה אחת בהרפתקה');
+    const out = adventure.stops[i];
     setSwapping(i);
-    const ids = adventure.stops.map((s, j) => (j === i ? next.id : s.id));
-    await loadStops(ids, `${adventure.stops[i].name} הוחלף ב${next.name}`);
+    const ids = adventure.stops.filter((_, j) => j !== i).map((x) => x.id);
+    await loadStops(ids, `${out.name} הוסרה. אפשר להחזיר אותה למטה`, [out, ...removed.filter((x) => x.id !== out.id)]);
+    setSwapping(null);
+  };
+
+  // החזרת תחנה שהסרתי: במקום שבו העיקוף הכי קטן
+  const restoreStop = async (stop) => {
+    setSwapping('way');
+    const ids = adventure.stops.map((x) => x.id);
+    ids.splice(bestInsertAt(stop, originRef.current, adventure.stops), 0, stop.id);
+    await loadStops(ids, `${stop.name} חזרה להרפתקה`, removed.filter((x) => x.id !== stop.id));
     setSwapping(null);
   };
 
   // החלפת תחנה לפני היציאה: מקבלים מקום אחר באזור שמתאים להרפתקה
-  // onlyRegion: רק מקום בתוך האזור שנבחר (להחלפת תחנה שבדרך)
   const swapStop = async (i, onlyRegion = false) => {
     setSwapping(i);
     const q = new URLSearchParams({
@@ -215,6 +252,7 @@ function AdventurePreview() {
       const data = await res.json();
       if (!res.ok || data.error) notify(data.error || 'לא מצאנו תחנה אחרת');
       else {
+        data.stops = data.stops.map((x) => ({ ...x, onTheWay: x.onTheWay || adventure.stops.some((y) => y.id === x.id && y.onTheWay) }));
         const old = adventure.stops[i].name;
         const added = data.stops.find((s) => !adventure.stops.some((x) => x.id === s.id));
         setAdventure({ ...data, fit: null, curatedId: null, duration: adventure.duration || data.duration, style: adventure.style, region: adventure.region || data.region });
@@ -300,6 +338,9 @@ function AdventurePreview() {
   return (
     <main dir="rtl" style={st.page}>
       <div style={st.topbar}>
+        <button type="button" style={st.backPill} onClick={goBack} aria-label="חזרה אחורה">
+          → חזרה
+        </button>
         <button
           type="button"
           style={{ ...st.circle, color: isFav ? '#E5484D' : '#14213D' }}
@@ -308,9 +349,6 @@ function AdventurePreview() {
           onClick={() => setFav(toggleFavorite({ key: advKey, title: adventure.title, href: favHref, region: adventure.region, stops: adventure.stops.length }) || false)}
         >
           {isFav ? '♥' : '♡'}
-        </button>
-        <button type="button" style={st.circle} onClick={() => router.push('/')} aria-label="חזרה">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6" /></svg>
         </button>
       </div>
 
@@ -356,9 +394,10 @@ function AdventurePreview() {
 
       <AdventureMap stops={adventure.stops} userPos={userPos} selected={selected} onSelect={setSelected} height={200} />
 
+      <p style={st.swipeHint}>החליקו תחנה הצידה כדי להסיר אותה</p>
       <ol style={st.list} aria-label="התחנות לפי הסדר">
         {adventure.stops.map((s, i) => (
-          <li key={s.id} style={{ ...st.item, ...(selected === i ? st.itemOn : null) }} onClick={() => setSelected(i)}>
+          <SwipeRow key={s.id} selected={selected === i} onClick={() => setSelected(i)} onRemove={() => removeStop(i)} label={s.name}>
             <span style={st.num}>{i + 1}</span>
             <span
               style={{
@@ -381,34 +420,7 @@ function AdventurePreview() {
                 {s.onTheWay ? <span style={st.onWay}>תחנה בדרך</span> : null}
               </small>
             </span>
-            {s.onTheWay ? (
-              <span style={st.swapCol}>
-                <button
-                  type="button"
-                  style={st.swap}
-                  disabled={swapping !== null}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    swapWithWay(i);
-                  }}
-                  aria-label={`החלפת ${s.name} בעצירה אחרת בדרך`}
-                >
-                  {swapping === i ? '...' : '⇄ אחרת בדרך'}
-                </button>
-                <button
-                  type="button"
-                  style={st.swap}
-                  disabled={swapping !== null}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    swapStop(i, true);
-                  }}
-                  aria-label={`החלפת ${s.name} בתחנה באזור`}
-                >
-                  ⇄ באזור
-                </button>
-              </span>
-            ) : (
+            {!s.onTheWay && (
               <button
                 type="button"
                 style={st.swap}
@@ -422,14 +434,26 @@ function AdventurePreview() {
                 {swapping === i ? '...' : '⇄ החלף'}
               </button>
             )}
-          </li>
+            <button
+              type="button"
+              style={st.del}
+              disabled={swapping !== null}
+              onClick={(e) => {
+                e.stopPropagation();
+                removeStop(i);
+              }}
+              aria-label={`הסרת התחנה ${s.name}`}
+            >
+              ✕
+            </button>
+          </SwipeRow>
         ))}
       </ol>
 
       {(adventure.wayStops || []).filter((w) => !adventure.stops.some((s) => s.id === w.id)).length > 0 && (
         <section style={st.wayBox} aria-label="אפשר לעצור בדרך">
           <h2 style={st.wayTitle}>🛣️ אפשר לעצור בדרך</h2>
-          <p style={st.wayText}>מקומות שנמצאים על הדרך אל התחנה הראשונה. אפשר להוסיף עצירה.</p>
+          <p style={st.wayText}>מקומות שנמצאים על הדרך להרפתקה ובין התחנות. אפשר להוסיף עצירה, והזמנים יתעדכנו.</p>
           {adventure.wayStops
             .filter((w) => !adventure.stops.some((s) => s.id === w.id))
             .map((w) => (
@@ -440,7 +464,7 @@ function AdventurePreview() {
                 <span style={{ flex: 1, minWidth: 0, display: 'grid', gap: 2 }}>
                   <b style={{ fontSize: 15 }}>{w.name}</b>
                   <small style={{ color: MUTED, fontSize: 12 }}>
-                    {w.type} · {w.region} · בערך {formatMinutes(w.extraMinutes)} נוספות{w.roads ? ` · ${w.roads}` : ''}
+                    {w.type} · {w.region} · {w.insertAt ? `לפני תחנה ${w.insertAt + 1}` : 'בדרך לתחנה הראשונה'} · בערך {formatMinutes(w.extraMinutes)} נוספות{w.roads ? ` · ${w.roads}` : ''}
                   </small>
                 </span>
                 <button type="button" style={st.wayAdd} disabled={swapping !== null} onClick={() => addWayStop(w)}>
@@ -448,6 +472,28 @@ function AdventurePreview() {
                 </button>
               </div>
             ))}
+        </section>
+      )}
+
+      {removed.length > 0 && (
+        <section style={st.removedBox} aria-label="תחנות שהסרתי">
+          <h2 style={st.wayTitle}>תחנות שהסרתי</h2>
+          {removed.map((r) => (
+            <div key={r.id} style={st.wayItem}>
+              <span style={{ ...st.thumb, ...(r.image ? { backgroundImage: `url(${r.image})` } : null), opacity: 0.7 }} aria-hidden="true">
+                {r.image ? null : <TypeIcon type={r.type} size={20} />}
+              </span>
+              <span style={{ flex: 1, minWidth: 0, display: 'grid', gap: 2 }}>
+                <b style={{ fontSize: 15 }}>{r.name}</b>
+                <small style={{ color: MUTED, fontSize: 12 }}>
+                  {r.type} · {r.region}
+                </small>
+              </span>
+              <button type="button" style={st.restore} disabled={swapping !== null} onClick={() => restoreStop(r)}>
+                ↩ החזרה
+              </button>
+            </div>
+          ))}
         </section>
       )}
 
@@ -525,6 +571,11 @@ const st = {
   stopType: { display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 12, fontWeight: 500, color: '#1557AD', marginTop: 2 },
   swap: { flex: '0 0 auto', border: '1px solid #D5DFEB', background: '#fff', color: '#1E6FD9', borderRadius: 999, padding: '7px 10px', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
   swapCol: { display: 'grid', gap: 4, flex: '0 0 auto' },
+  del: { flex: '0 0 auto', width: 30, height: 30, borderRadius: '50%', border: '1px solid #E3EAF3', background: '#fff', color: '#8A96A8', fontSize: 12, cursor: 'pointer' },
+  swipeHint: { margin: '-8px 0 -8px', fontSize: 12, color: '#8A96A8', textAlign: 'center' },
+  removedBox: { display: 'grid', gap: 8, background: '#EEF1F5', borderRadius: 18, padding: 12 },
+  restore: { flex: '0 0 auto', border: '2px solid #1E6FD9', background: '#fff', color: '#1E6FD9', borderRadius: 999, padding: '7px 12px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
+  backPill: { border: 0, background: '#fff', color: '#14213D', borderRadius: 999, padding: '9px 14px', fontSize: 15, fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 12px rgba(20,33,61,.10)', fontFamily: 'inherit' },
   wayBox: { display: 'grid', gap: 8, background: '#FFF8EE', border: '1px solid #F6D58B', borderRadius: 18, padding: 12 },
   wayTitle: { margin: 0, fontSize: 16, fontWeight: 700 },
   wayText: { margin: 0, fontSize: 13, color: MUTED },
