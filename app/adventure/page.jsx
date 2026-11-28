@@ -195,6 +195,13 @@ function AdventurePreview() {
     router.push(`/new?${q.toString()}`);
   };
   const pickSuggestion = (sug) => {
+    // עוברים בדיוק להרפתקה שהוצעה (אותן תחנות)
+    if (sug.stopIds?.length) {
+      const q = new URLSearchParams({ stops: sug.stopIds.join(','), title: sug.title || '' });
+      if (params.get('depart')) q.set('depart', params.get('depart'));
+      router.push(`/adventure?${q.toString()}`);
+      return;
+    }
     const q = new URLSearchParams({ mode: 'custom', region: sug.region, duration: sug.duration, style: sug.style || '' });
     if (sug.placeId) q.set('id', sug.placeId);
     if (params.get('depart')) q.set('depart', params.get('depart'));

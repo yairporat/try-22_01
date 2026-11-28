@@ -23,7 +23,17 @@ export default function FitNotice({ adventure, onPick, onChooseOther, onOriginCh
   const s = fit.suggestion;
   const empty = fit.reason === 'empty' || !adventure.stops.length;
   const what =
-    !s ? null : s.kind === 'region' ? `הרפתקה ב${s.region}` : s.kind === 'duration' ? `${s.duration} ב${adventure.region}` : `${s.duration} ב${s.region}`;
+    !s
+      ? null
+      : s.kind === 'style'
+        ? `${s.style} ב${s.region}`
+        : s.kind === 'region'
+          ? `${s.style ? `${s.style} · ` : ''}הרפתקה ב${s.region}`
+          : s.kind === 'nearest'
+            ? `המקום הקרוב ביותר · ${s.region}`
+            : s.kind === 'duration'
+              ? `${s.duration} ב${s.region}`
+              : `${s.duration} ב${s.region}`;
 
   return (
     <div style={st.overlay} role="dialog" aria-modal="true" aria-label={t('nofit.title')} dir="rtl">
@@ -38,6 +48,7 @@ export default function FitNotice({ adventure, onPick, onChooseOther, onOriginCh
             <p style={st.suggMeta}>
               {what} · {s.stops} {s.stops === 1 ? 'תחנה' : 'תחנות'}
             </p>
+            {s.names?.length ? <p style={st.suggNames}>{s.names.join(' ← ')}</p> : null}
           </div>
         ) : (
           <p style={st.text}>אין כרגע המלצה אחרת. אפשר לבחור אחרת או לצאת ממקום אחר.</p>
@@ -86,6 +97,7 @@ const st = {
   sugg: { background: '#EAF2FE', borderRadius: 18, padding: 12, display: 'grid', gap: 3, textAlign: 'start' },
   suggLabel: { margin: 0, fontSize: 12, fontWeight: 700, color: '#1557AD' },
   suggTitle: { margin: 0, fontSize: 17, fontWeight: 800 },
+  suggNames: { margin: 0, fontSize: 13, fontWeight: 600, color: '#14213D' },
   suggMeta: { margin: 0, fontSize: 13, color: '#5B6677' },
   actions: { display: 'grid', gap: 8, marginTop: 4 },
   primary: { border: 'none', borderRadius: 999, padding: '13px 0', fontSize: 16, fontWeight: 800, background: '#F26B1D', color: '#fff', boxShadow: '0 4px 0 #C2520F', cursor: 'pointer', fontFamily: font },
