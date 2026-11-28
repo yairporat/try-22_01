@@ -4,11 +4,11 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { hasCoords, wazeLink } from '../lib/travel';
 import { formatDate, lastVisit } from '../lib/visited';
 import Birds from './Birds';
 import Reviews from './Reviews';
 import TypeIcon from './TypeIcon';
+import PlaceInfo from './PlaceInfo';
 
 export default function PlaceSheet({ id, visit, rating, onClose }) {
   const router = useRouter();
@@ -36,14 +36,6 @@ export default function PlaceSheet({ id, visit, rating, onClose }) {
 
   const p = place || visit || {};
   const images = place ? [place.image, ...(place.gallery || [])].filter(Boolean) : [];
-  const info = place
-    ? [
-        place.hours && ['🕒', 'שעות פתיחה', place.hours],
-        place.parking && ['🅿️', 'חניה', place.parking],
-        place.tips && ['⚠️', 'חשוב לדעת', place.tips],
-        place.equipment && ['🎒', 'ציוד', place.equipment],
-      ].filter(Boolean)
-    : [];
 
   return (
     <div style={s.overlay} role="dialog" aria-modal="true" aria-label={p.name || 'פרטי מקום'} dir="rtl" onClick={onClose}>
@@ -81,29 +73,7 @@ export default function PlaceSheet({ id, visit, rating, onClose }) {
 
         {error && <p style={s.muted}>{error}</p>}
         {!place && !error && <p style={s.muted}>טוען פרטים...</p>}
-        {place?.description ? <p style={s.desc}>{place.description}</p> : null}
-        {info.length ? (
-          <div style={s.box}>
-            {info.map(([icon, label, text]) => (
-              <p key={label} style={s.line}>
-                <span aria-hidden="true">{icon}</span> <b>{label}:</b> {text}
-              </p>
-            ))}
-          </div>
-        ) : null}
-
-        {place && (
-          <div style={s.navRow}>
-            <a href={place.mapsLink} target="_blank" rel="noreferrer" style={s.nav}>
-              נווט ב-Google Maps
-            </a>
-            {hasCoords(place) && (
-              <a href={wazeLink(place)} target="_blank" rel="noreferrer" style={{ ...s.nav, ...s.waze }}>
-                Waze
-              </a>
-            )}
-          </div>
-        )}
+        {place && <PlaceInfo place={place} />}
         {place && (
           <button type="button" style={s.again} onClick={() => router.push(`/adventure?id=${encodeURIComponent(place.id)}`)}>
             הרפתקה חדשה סביב המקום הזה

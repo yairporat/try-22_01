@@ -301,7 +301,7 @@ function GalleryField({ value, onChange }) {
 }
 
 // ---------------- מקומות ----------------
-const EMPTY_PLACE = { name: '', region: REGIONS[0], type: TYPES[0], difficulty: LEVELS[0], visitMinutes: 60, description: '', location: '', image: '', gallery: [], hours: '', parking: '', tips: '', equipment: '', radius: '', recommended: false, hidden: false, wayStop: false, roads: '' };
+const EMPTY_PLACE = { name: '', region: REGIONS[0], type: TYPES[0], difficulty: LEVELS[0], visitMinutes: 60, description: '', location: '', image: '', gallery: [], hours: '', parking: '', tips: '', equipment: '', directions: '', season: '', notes: '', spotLocation: '', radius: '', recommended: false, hidden: false, wayStop: false, roads: '' };
 
 function PlacesTab({ imported, notify }) {
   const [places, setPlaces] = useState(null);
@@ -374,8 +374,8 @@ function PlaceForm({ place, onCancel, onSaved }) {
     try {
       const r = await api('/api/admin/places', { method: 'POST', body: JSON.stringify(p) });
       onSaved(
-        r.wayColumnsMissing
-          ? 'המקום נשמר, אבל "עצירה בדרך" והכבישים לא נשמרו: צריך להריץ ב-Supabase את supabase/migrations/004_way_stops.sql'
+        r.missing?.length
+          ? `המקום נשמר, אבל חלק מהשדות לא נשמרו (${r.missing.join(', ')}). צריך להריץ ב-Supabase את קובץ ההגדרות החדש (ראו בצ'אט).`
           : r.located
             ? 'המקום נשמר'
             : 'המקום נשמר, אבל לא זיהינו את המיקום מהקישור. הדביקו קישור שיתוף מגוגל מפס.',
@@ -412,17 +412,24 @@ function PlaceForm({ place, onCancel, onSaved }) {
         <Field label="זמן ביקור (דקות)"><input type="number" min="5" step="5" value={p.visitMinutes} onChange={set('visitMinutes')} style={st.input} inputMode="numeric" /></Field>
         <Field label="רדיוס הגעה (מטרים)"><input type="number" min="50" step="50" value={p.radius} onChange={set('radius')} placeholder="400" style={st.input} inputMode="numeric" /></Field>
       </div>
-      <Field label="מיקום בגוגל מפס" hint="בגוגל מפס: שיתוף > העתקת קישור, ומדביקים כאן">
+      <Field label="🅿️ מיקום החניה / נקודת הניווט (גוגל מפס)" hint="אליו מנווטים מההתחלה. בגוגל מפס: שיתוף > העתקת קישור, ומדביקים כאן">
         <input value={p.location} onChange={set('location')} style={st.input} dir="ltr" placeholder="https://maps.app.goo.gl/..." />
       </Field>
       {typeof p.lat === 'number' && <p style={st.muted}>📍 מיקום שזוהה: {p.lat.toFixed(5)}, {p.lng.toFixed(5)}</p>}
-      <Field label="תיאור"><textarea value={p.description} onChange={set('description')} rows={5} style={st.input} /></Field>
+      <Field label="📍 מיקום המקום עצמו (למשל המעיין) – לא חובה" hint="מופיע רק בתוך ההרפתקה, כשנכנסים לתחנה: כפתור ניווט לנקודה המדויקת">
+        <input value={p.spotLocation || ''} onChange={set('spotLocation')} style={st.input} dir="ltr" placeholder="https://maps.app.goo.gl/..." />
+      </Field>
+      {typeof p.spotLat === 'number' && <p style={st.muted}>📍 המקום עצמו: {p.spotLat.toFixed(5)}, {p.spotLng.toFixed(5)}</p>}
+      <Field label="על המקום (תיאור)"><textarea value={p.description} onChange={set('description')} rows={5} style={st.input} /></Field>
+      <Field label="איך מגיעים"><textarea value={p.directions || ''} onChange={set('directions')} rows={3} style={st.input} /></Field>
       <ImageField value={p.image} onChange={set('image')} label="תמונה ראשית" />
       <GalleryField value={p.gallery} onChange={set('gallery')} />
       <Field label="שעות פתיחה"><input value={p.hours} onChange={set('hours')} style={st.input} /></Field>
       <Field label="חניה"><textarea value={p.parking} onChange={set('parking')} rows={2} style={st.input} /></Field>
       <Field label="חשוב לדעת (בטיחות, עונה, מזג אוויר)"><textarea value={p.tips} onChange={set('tips')} rows={2} style={st.input} /></Field>
-      <Field label="ציוד מומלץ"><input value={p.equipment} onChange={set('equipment')} style={st.input} /></Field>
+      <Field label="ציוד נדרש"><input value={p.equipment} onChange={set('equipment')} style={st.input} /></Field>
+      <Field label="עונה / זמן מומלץ"><input value={p.season || ''} onChange={set('season')} style={st.input} placeholder="למשל: אביב, בבוקר מוקדם" /></Field>
+      <Field label="הערות נוספות"><textarea value={p.notes || ''} onChange={set('notes')} rows={3} style={st.input} /></Field>
       <div style={st.wayBox}>
         <label style={st.check}><input type="checkbox" checked={!!p.wayStop} onChange={set('wayStop')} /> 🛣️ מתאים לעצירה בדרך</label>
         <small style={st.muted}>האפליקציה מציעה לעצור כאן כשהנסיעה להרפתקה עוברת בסביבה, גם אם המקום לא באזור שנבחר. גם בלי הסימון היא מזהה מקומות שממש על הדרך.</small>

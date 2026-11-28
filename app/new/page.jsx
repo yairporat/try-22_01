@@ -10,6 +10,7 @@ import { REGIONS, DURATIONS, STYLES, styleFrom } from '../../lib/adventure';
 import { restoreProfile } from '../../lib/profile';
 import OriginPicker from '../../components/OriginPicker';
 import TabBar from '../../components/TabBar';
+import { navBack } from '../../lib/nav';
 import { T, useSite } from '../../components/Site';
 
 const TIMES = [];
@@ -76,7 +77,7 @@ function NewAdventure() {
   return (
     <div dir="rtl" className="app">
       <main className="screen">
-        <button type="button" className="backPill" onClick={() => (window.history.length > 1 ? router.back() : router.push('/'))} aria-label="חזרה אחורה">
+        <button type="button" className="backPill" onClick={() => navBack(router)} aria-label="חזרה אחורה">
           → חזרה
         </button>
         <section className="hero">

@@ -3,7 +3,8 @@
 // פירוט של תחנה שנבחרה במפה: זמני נסיעה, זמן ביקור, שעות פתיחה וקישורי ניווט.
 
 import { useEffect, useState } from 'react';
-import { driveTime, formatKm, formatMinutes, hasCoords, wazeLink } from '../lib/travel';
+import { driveTime, formatKm, formatMinutes, hasCoords } from '../lib/travel';
+import PlaceInfo from './PlaceInfo';
 
 export default function StopDetails({ stop, index, prevStop, userPos, onClose }) {
   const [fromMe, setFromMe] = useState(null);
@@ -55,24 +56,9 @@ export default function StopDetails({ stop, index, prevStop, userPos, onClose })
         ))}
       </dl>
 
-      {stop.tips && (
-        <p style={s.tips}>
-          <b>חשוב לדעת: </b>
-          {stop.tips}
-        </p>
-      )}
-      {stop.description && <p style={s.desc}>{stop.description}</p>}
       {!hasCoords(stop) && <p style={s.note}>למקום הזה אין מיקום מדויק, ולכן הוא לא מופיע במפה.</p>}
-
-      <div style={s.actions}>
-        <a href={stop.mapsLink} target="_blank" rel="noreferrer" style={s.btn}>
-          Google Maps
-        </a>
-        {hasCoords(stop) && (
-          <a href={wazeLink(stop)} target="_blank" rel="noreferrer" style={{ ...s.btn, ...s.waze }}>
-            Waze
-          </a>
-        )}
+      <div style={{ marginTop: 12 }}>
+        <PlaceInfo place={stop} />
       </div>
     </section>
   );
