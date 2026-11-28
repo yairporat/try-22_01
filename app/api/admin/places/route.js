@@ -41,6 +41,10 @@ export async function POST(request) {
     tips: str(b.tips, 1000),
     parking: str(b.parking, 1000),
     equipment: str(b.equipment, 500),
+    directions: str(b.directions, 2000),
+    season: str(b.season, 500),
+    notes: str(b.notes, 2000),
+    spotLocation: str(b.spotLocation, 1000),
     location: str(b.location, 1000),
     image: str(b.image, 1000),
     gallery: (Array.isArray(b.gallery) ? b.gallery : []).map((x) => str(x, 1000)).filter(Boolean).slice(0, 20),
@@ -56,12 +60,16 @@ export async function POST(request) {
   if (!coords && isUrl(place.location)) coords = await resolveShortLink(place.location);
   if (!coords && Number.isFinite(Number(b.lat)) && Number.isFinite(Number(b.lng)) && b.lat !== '' && b.lng !== '') coords = { lat: Number(b.lat), lng: Number(b.lng) };
   if (coords) Object.assign(place, coords);
+  // המיקום של המקום עצמו (למשל המעיין) – מוצג רק בתוך ההרפתקה
+  let spot = parseLatLng(place.spotLocation);
+  if (!spot && isUrl(place.spotLocation)) spot = await resolveShortLink(place.spotLocation);
+  if (spot) Object.assign(place, { spotLat: spot.lat, spotLng: spot.lng });
 
   const errors = validatePlaces([{ ...place, id: place.id || 'new' }], () => 'המקום');
   if (errors.length) return Response.json({ error: errors.join('\n') }, { status: 400 });
   try {
     const saved = await savePlace(place);
-    return Response.json({ place: saved, located: !!coords, wayColumnsMissing: content.wayColumnsMissing && (place.wayStop || !!place.roads) });
+    return Response.json({ place: saved, located: !!coords, missing: content.missingColumns });
   } catch (e) {
     console.error('⚠️ שמירת מקום נכשלה:', e.message);
     return Response.json({ error: 'השמירה נכשלה. נסו שוב.' }, { status: 500 });

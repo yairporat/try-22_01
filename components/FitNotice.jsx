@@ -27,6 +27,8 @@ export default function FitNotice({ adventure, onPick, onChooseOther, onOriginCh
       ? null
       : s.kind === 'style'
         ? `${s.style} ב${s.region}`
+        : s.region === adventure.region
+          ? `${s.duration} ב${s.region}${s.style && s.style !== adventure.style ? ` · ${s.style}` : ''}`
         : s.kind === 'region'
           ? `${s.style ? `${s.style} · ` : ''}הרפתקה ב${s.region}`
           : s.kind === 'nearest'
@@ -51,7 +53,7 @@ export default function FitNotice({ adventure, onPick, onChooseOther, onOriginCh
             {s.names?.length ? <p style={st.suggNames}>{s.names.join(' ← ')}</p> : null}
           </div>
         ) : (
-          <p style={st.text}>אין כרגע המלצה אחרת. אפשר לבחור אחרת או לצאת ממקום אחר.</p>
+          <p style={st.text}>אין עדיין מספיק מקומות ב{adventure.region}. אפשר להחליף את ההרפתקה.</p>
         )}
 
         <div style={st.actions}>
@@ -63,15 +65,7 @@ export default function FitNotice({ adventure, onPick, onChooseOther, onOriginCh
           <button type="button" style={st.secondary} onClick={onChooseOther}>
             {t('nofit.other')}
           </button>
-          <button type="button" style={st.ghost} onClick={() => setOriginOpen(true)}>
-            📍 {t('nofit.origin')}
-          </button>
         </div>
-        {!empty && (
-          <button type="button" style={st.link} onClick={onClose}>
-            {t('nofit.showAnyway')}
-          </button>
-        )}
       </div>
       {originOpen && (
         <OriginSheet

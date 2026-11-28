@@ -21,6 +21,7 @@ import { recordSurprise, surpriseParams } from '../../lib/surpriseHistory';
 import { bestInsertAt } from '../../lib/waystops';
 import SwipeRow from '../../components/SwipeRow';
 import { loadCurrent, saveCurrent } from '../../lib/currentAdventure';
+import { navBack } from '../../lib/nav';
 
 export default function AdventurePage() {
   return (
@@ -157,7 +158,7 @@ function AdventurePreview() {
   };
 
   // חזרה אחורה (או למסך הבית, אם נכנסו ישר לעמוד)
-  const goBack = () => (window.history.length > 1 ? router.back() : router.push('/'));
+  const goBack = () => navBack(router);
 
   const notify = (msg) => {
     setToast(msg);
@@ -279,7 +280,7 @@ function AdventurePreview() {
   const pickSuggestion = (sug) => {
     // עוברים בדיוק להרפתקה שהוצעה (אותן תחנות)
     if (sug.stopIds?.length) {
-      const q = new URLSearchParams({ stops: sug.stopIds.join(','), title: sug.title || '' });
+      const q = new URLSearchParams({ stops: sug.stopIds.join(','), title: sug.title || '', region: sug.region || '' });
       if (params.get('depart')) q.set('depart', params.get('depart'));
       router.push(`/adventure?${q.toString()}`);
       return;

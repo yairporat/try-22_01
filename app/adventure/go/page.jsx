@@ -12,6 +12,7 @@ import AdventureMap from '../../../components/AdventureMap';
 import PhoenixRating from '../../../components/PhoenixRating';
 import TypeIcon from '../../../components/TypeIcon';
 import Reviews from '../../../components/Reviews';
+import PlaceInfo from '../../../components/PlaceInfo';
 import { airKm, driveTime, formatKm, formatMinutes, hasCoords, wazeLink } from '../../../lib/travel';
 import { equipmentFor } from '../../../lib/equipment';
 import { recordVisit } from '../../../lib/visited';
@@ -509,11 +510,6 @@ function StopDetail({ stop, index, total, isCurrent, done, wasSkipped, userPos, 
   }, [stop.id, Math.round((userPos?.lat || 0) * 100), Math.round((userPos?.lng || 0) * 100)]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const air = userPos && hasCoords(stop) ? airKm(userPos, stop) * 1000 : null;
-  const safety = [
-    stop.parking && ['🅿️', 'חניה', stop.parking],
-    stop.tips && ['⚠️', 'חשוב לדעת', stop.tips],
-    stop.hours && ['🕒', 'שעות פתיחה', stop.hours],
-  ].filter(Boolean);
 
   return (
     <main dir="rtl" style={{ ...st.page, paddingBottom: isCurrent && !done ? 260 : 40 }}>
@@ -540,24 +536,8 @@ function StopDetail({ stop, index, total, isCurrent, done, wasSkipped, userPos, 
         </div>
       </header>
 
-      {stop.description && <p style={st.desc}>{stop.description}</p>}
-
-      <section style={st.box}>
-        <h2 style={st.h2}>הגעה ובטיחות</h2>
-        {safety.map(([icon, label, text]) => (
-          <p key={label} style={st.line}><span aria-hidden="true">{icon}</span> <b>{label}:</b> {text}</p>
-        ))}
-        <div style={st.line}>
-          <span aria-hidden="true">🎒</span> <b>ציוד מומלץ:</b> {gear.items.join(', ')}
-          {gear.general && <span style={st.small}> (המלצה כללית)</span>}
-        </div>
-        {!safety.length && <p style={st.small}>אין עדיין הערות הגעה למקום הזה.</p>}
-      </section>
-
-      <div style={st.navRow}>
-        <a href={stop.mapsLink} target="_blank" rel="noreferrer" style={st.navBtn}>נווט ב-Google Maps</a>
-        {hasCoords(stop) && <a href={wazeLink(stop)} target="_blank" rel="noreferrer" style={{ ...st.navBtn, ...st.waze }}>Waze</a>}
-      </div>
+      {/* כל הפרטים, וניווט לחניה – ובתוך ההרפתקה גם ניווט למקום עצמו */}
+      <PlaceInfo place={stop} showSpot gear={gear.items.join(', ')} />
 
       <Reviews placeIds={[stop.id]} limit={3} />
 
