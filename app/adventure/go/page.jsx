@@ -324,6 +324,7 @@ export default function GoPage() {
                     {isCur && <span style={st.here}>אתה כאן</span>}
                     {done && <span style={st.doneTag}>{done.by === 'admin' ? 'אומת ע"י מנהל' : 'הגעת'}</span>}
                     {sk && <span style={st.skipTag}>דילגת</span>}
+                    {s.onTheWay && <span style={st.skipTag}>תחנה בדרך</span>}
                   </p>
                   <button
                     type="button"

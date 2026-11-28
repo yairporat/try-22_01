@@ -26,6 +26,7 @@ export async function GET(request) {
       : null;
   // שעת היציאה (?depart=08:30), לפיה מחושבים הפקקים. בלי – יוצאים עכשיו
   const departAt = departureDate(q.get('depart')).toISOString();
+  const list = (k, n) => (q.get(k) || '').split(',').map((x) => x.trim()).filter(Boolean).slice(0, n);
   // מקומות שכבר ביקרתי בהם (כשמסומן "רק מקומות חדשים")
   const exclude = (q.get('exclude') || '').split(',').map((x) => x.trim()).filter(Boolean).slice(0, 500);
 
@@ -34,10 +35,13 @@ export async function GET(request) {
   if (replaceAt !== null && q.get('stops')) {
     const ids = q.get('stops').split(',').filter((id) => places.some((p) => p.id === id)).slice(0, 10);
     const tried = (q.get('tried') || '').split(',').filter(Boolean).slice(0, 50);
-    const next = replaceStop(places, { stopIds: ids, index: Number(replaceAt), level: q.get('level'), duration: q.get('duration'), origin, exclude, tried });
+    const region = q.get('region') || null;
+    const next = replaceStop(places, { stopIds: ids, index: Number(replaceAt), level: q.get('level'), style: q.get('style'), region, duration: q.get('duration'), origin, exclude, tried });
     if (!next) return Response.json({ error: 'לא מצאנו מקום אחר שמתאים להרפתקה הזו באזור.' }, { status: 404 });
     const a = buildCurated(places, { id: `custom-${next.join('-')}`, name: q.get('title') || 'ההרפתקה שלי', stops: next }, origin, departAt);
-    return Response.json({ ...a, curatedId: null });
+    // תחנה מחוץ לאזור שנבחר – "תחנה בדרך"
+    const stops = a.stops.map((s) => ({ ...s, onTheWay: !!(region && s.region !== region) }));
+    return Response.json({ ...a, stops, region: region || a.region, curatedId: null });
   }
 
   // הרפתקה שמורה (מהמועדפים): אותן תחנות באותו סדר
@@ -62,7 +66,12 @@ export async function GET(request) {
       region: q.get('region'),
       duration: q.get('duration'),
       level: q.get('level'),
+      style: q.get('style'),
       placeId: q.get('id'),
+      // "הפתע אותי": מה יצא לאחרונה במכשיר הזה, כדי לא לחזור על זה
+      recentRegions: list('recentRegions', 5),
+      recentAnchors: list('recentAnchors', 20),
+      recentCombos: list('recentCombos', 20),
       origin,
       departAt,
       exclude,

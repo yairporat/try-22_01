@@ -1,12 +1,12 @@
 'use client';
 
 // "הרפתקאה חדשה": הכפתור העגול בסרגל התחתון.
-// בוחרים "הפתע אותי" או "התאמה אישית" (אזור, משך, רמת קושי), מאיפה יוצאים ומתי – ומקבלים הרפתקה.
-// אפשר להגיע לכאן עם בחירות מוכנות: /new?region=גולן&duration=חצי יום&level=קל&mode=custom
+// בוחרים "הפתע אותי" או "התאמה אישית" (אזור, משך, סגנון ההרפתקה), מאיפה יוצאים ומתי – ומקבלים הרפתקה.
+// אפשר להגיע לכאן עם בחירות מוכנות: /new?region=גולן&duration=חצי יום&style=ברגוע&mode=custom
 
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { REGIONS, DURATIONS, LEVELS } from '../../lib/adventure';
+import { REGIONS, DURATIONS, STYLES, styleFrom } from '../../lib/adventure';
 import { restoreProfile } from '../../lib/profile';
 import OriginPicker from '../../components/OriginPicker';
 import TabBar from '../../components/TabBar';
@@ -30,7 +30,7 @@ function NewAdventure() {
   const [mode, setMode] = useState(null);
   const [region, setRegion] = useState('');
   const [duration, setDuration] = useState('');
-  const [level, setLevel] = useState('');
+  const [style, setStyle] = useState(''); // סגנון ההרפתקה
   const [depart, setDepart] = useState('');
   const [newOnly, setNewOnly] = useState(true); // רק מקומות שעוד לא ביקרתי בהם
 
@@ -39,18 +39,18 @@ function NewAdventure() {
     // בחירות שהגיעו בקישור (מאזור במסך הבית, או "בחירה אחרת")
     const r = params.get('region');
     const d = params.get('duration');
-    const l = params.get('level');
+    const st = styleFrom(params.get('style'), params.get('level'));
     const m = params.get('mode');
     if (REGIONS.includes(r)) setRegion(r);
     if (DURATIONS.includes(d)) setDuration(d);
-    if (LEVELS.includes(l)) setLevel(l);
+    if (st) setStyle(st);
     if (m === 'surprise') setMode('surprise');
     else if (m === 'custom' || r) setMode('custom');
     if (/^\d{2}:\d{2}$/.test(params.get('depart') || '')) setDepart(params.get('depart'));
     if (params.get('newOnly') === '0') setNewOnly(false);
   }, [params, router]);
 
-  const ready = mode === 'surprise' || (mode === 'custom' && region && duration && level);
+  const ready = mode === 'surprise' || (mode === 'custom' && region && duration && style);
 
   function find() {
     if (!ready) return;
@@ -58,7 +58,7 @@ function NewAdventure() {
     if (mode === 'custom') {
       q.set('region', region);
       q.set('duration', duration);
-      q.set('level', level);
+      q.set('style', style);
     }
     if (depart) q.set('depart', depart);
     if (newOnly) q.set('newOnly', '1');
@@ -114,8 +114,8 @@ function NewAdventure() {
                 <div className="three">{chips(DURATIONS, duration, setDuration)}</div>
               </div>
               <div className="group">
-                <span className="label">רמת קושי</span>
-                <div className="three">{chips(LEVELS, level, setLevel)}</div>
+                <span className="label">סגנון ההרפתקה</span>
+                <div className="three">{chips(STYLES, style, setStyle)}</div>
               </div>
             </div>
           )}
